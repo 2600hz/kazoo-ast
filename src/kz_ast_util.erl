@@ -222,7 +222,7 @@ project_apps() ->
     Core = siblings_of('kazoo_apps'),
     Apps = siblings_of('crossbar'),
     [App || App <- Core ++ Apps,
-            code:is_loaded(App)
+            'false' =/= kz_module:ensure_loaded(App)
     ].
 
 siblings_of(App) ->
