@@ -1,0 +1,109 @@
+---
+version: 2.1
+
+orbs:
+  kazoo: official-2600hz/kazoo@dev:alpha
+
+workflows:
+  version: 2
+  build_branch:
+    jobs:
+      - kazoo/build-preparation:
+          target-type: kapp
+      - kazoo/build:
+          requires:
+            - kazoo/build-preparation
+      - kazoo/eunit-tests:
+          requires:
+            - kazoo/build-preparation
+      - kazoo/code-checks:
+          requires:
+            - kazoo/build
+      - kazoo/docs:
+          requires:
+            - kazoo/build
+      - kazoo/analyze:
+          requires:
+            - kazoo/build
+      - kazoo/integration-test:
+          requires:
+            - kazoo/build
+      - kazoo/build-centos7:
+          target-type: kapp
+          requires:
+            - kazoo/eunit-tests
+            - kazoo/code-checks
+            - kazoo/docs
+            - kazoo/analyze
+            - kazoo/integration-test
+
+  build_release:
+    jobs:
+      - kazoo/build-preparation:
+          target-type: kapp
+          filters:
+            tags:
+              only: /^\d+\.\d+\.\d+$/
+            branches:
+              ignore: /.*/
+      - kazoo/build:
+          filters:
+            tags:
+              only: /^\d+\.\d+\.\d+$/
+            branches:
+              ignore: /.*/
+          requires:
+            - kazoo/build-preparation
+      - kazoo/eunit-tests:
+          filters:
+            tags:
+              only: /^\d+\.\d+\.\d+$/
+            branches:
+              ignore: /.*/
+          requires:
+            - kazoo/build-preparation
+      - kazoo/code-checks:
+          filters:
+            tags:
+              only: /^\d+\.\d+\.\d+$/
+            branches:
+              ignore: /.*/
+          requires:
+            - kazoo/build
+      - kazoo/docs:
+          filters:
+            tags:
+              only: /^\d+\.\d+\.\d+$/
+            branches:
+              ignore: /.*/
+          requires:
+            - kazoo/build
+      - kazoo/analyze:
+          filters:
+            tags:
+              only: /^\d+\.\d+\.\d+$/
+            branches:
+              ignore: /.*/
+          requires:
+            - kazoo/build
+      - kazoo/integration-test:
+          filters:
+            tags:
+              only: /^\d+\.\d+\.\d+$/
+            branches:
+              ignore: /.*/
+          requires:
+            - kazoo/build
+      - kazoo/build-centos7:
+          target-type: kapp
+          filters:
+            tags:
+              only: /^\d+\.\d+\.\d+$/
+            branches:
+              ignore: /.*/
+          requires:
+            - kazoo/eunit-tests
+            - kazoo/code-checks
+            - kazoo/docs
+            - kazoo/analyze
+            - kazoo/integration-test
