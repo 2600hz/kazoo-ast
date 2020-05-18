@@ -14,8 +14,8 @@
         ,to_pqc_mods/0 ,to_pqc_mod/1
         ]).
 
--include_lib("kazoo_ast/include/kz_ast.hrl").
--include_lib("kazoo_ast/src/kz_ast.hrl").
+-include_lib("ast/include/kz_ast.hrl").
+-include_lib("ast/src/kz_ast.hrl").
 -include_lib("kazoo_web/include/kazoo_web.hrl").
 
 -define(DOLLAR_SIGN, 36). % formatter (at least in CI) still barfs on $ in regex

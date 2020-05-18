@@ -27,7 +27,7 @@
         ,remote_apps/1
         ]).
 
--include_lib("kazoo_ast/include/kz_ast.hrl").
+-include_lib("ast/include/kz_ast.hrl").
 -include_lib("kazoo_stdlib/include/kz_types.hrl").
 -include_lib("kazoo_stdlib/include/kz_log.hrl").
 
@@ -287,7 +287,7 @@ process_project() ->
 process_app(App) ->
     process_app(App, []).
 
-process_app('kazoo_ast', Acc) -> Acc;
+process_app('ast', Acc) -> Acc;
 process_app(App, Acc) ->
     case application:get_key(App, 'applications') of
         'undefined' ->

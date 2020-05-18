@@ -1,6 +1,6 @@
 CWD = $(shell pwd -P)
 ROOT = $(realpath $(CWD)/../..)
-PROJECT = kazoo_ast
+PROJECT = ast
 
 all: compile
 

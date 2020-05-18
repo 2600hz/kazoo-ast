@@ -38,13 +38,13 @@
 -export([sort_methods/1]).
 -endif.
 
--include_lib("kazoo_ast/include/kz_ast.hrl").
+-include_lib("ast/include/kz_ast.hrl").
 -include_lib("kazoo_stdlib/include/kz_types.hrl").
 -include_lib("kazoo_stdlib/include/kz_log.hrl").
 -include_lib("kazoo_web/include/kazoo_web.hrl").
 -include_lib("kazoo_documents/include/kazoo_documents.hrl").
 
--include_lib("kazoo_ast/src/kz_ast.hrl").
+-include_lib("ast/src/kz_ast.hrl").
 
 -define(DEBUG(F, A), ?DEV_LOG(F, A)).
 -define(DEBUG(F), ?DEV_LOG(F)).
@@ -1308,7 +1308,7 @@ def_path_param(OasVersion, <<"{SOURCE_SERVICE}">> = P) ->
 def_path_param(_OasVersion, _Param) ->
     io:format('standard_error'
              ,"~s/" ?FILE ":~p: No Swagger definition of path parameter '~s'.\n"
-             ,[code:lib_dir('kazoo_ast'), ?LINE, _Param]
+             ,[code:lib_dir('ast'), ?LINE, _Param]
              ),
     halt(1).
 

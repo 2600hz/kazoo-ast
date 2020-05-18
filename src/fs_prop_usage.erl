@@ -15,7 +15,7 @@
         ,to_header_file/0
         ]).
 
--include_lib("kazoo_ast/include/kz_ast.hrl").
+-include_lib("ast/include/kz_ast.hrl").
 -include_lib("kazoo_stdlib/include/kazoo_json.hrl").
 
 -define(DEBUG(_Fmt, _Args), 'ok').

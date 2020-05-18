@@ -13,8 +13,8 @@
         ,to_docs/0, to_doc/1
         ]).
 
--include_lib("kazoo_ast/include/kz_ast.hrl").
--include_lib("kazoo_ast/src/kz_ast.hrl").
+-include_lib("ast/include/kz_ast.hrl").
+-include_lib("ast/src/kz_ast.hrl").
 
 -type acc() :: {module() | 'undefined', #{}}.
 

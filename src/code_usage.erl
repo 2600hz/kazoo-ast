@@ -14,7 +14,7 @@
         ,tabulate/0, tabulate/1
         ]).
 
--include_lib("kazoo_ast/include/kz_ast.hrl").
+-include_lib("ast/include/kz_ast.hrl").
 
 -define(DEFAULT_TOP, 25).
 

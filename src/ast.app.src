@@ -1,4 +1,4 @@
-{application, kazoo_ast
+{application, ast
 ,[
   {description, "Kazoo AST parsing for introspection"}
  ,{vsn, "4.0.0"}
