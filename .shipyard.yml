@@ -1,0 +1,21 @@
+---
+name: kazoo-application-ast
+base_branch: 'origin/master'
+metapackage:
+  - name: meta-kazoo-applications
+    type: related
+    branch: 'master'
+    package: kazoo-application-ast
+base_core: kazoo
+template: kazoo-application.spec.tmpl
+package:
+  centos7:
+    name: kazoo-application-ast
+    summary: Kazoo Abstract Syntax Tree App
+    description: |
+      Kazoo AST parsing for introspection
+    app_name: ast
+    license: MPL 2.0
+    group: Productivity/Telephony
+    url: https://2600hz.com/
+    vendor: 2600Hz
