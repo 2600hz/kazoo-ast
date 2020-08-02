@@ -483,7 +483,9 @@ remote_calls_from_expression(?GEN_FUN_ARGS(
                                   )
                                ,_Args0
                                ), Acc) ->
-    lists:foldl(fun add_remote_module/2, Acc, [M0, M1, M2]).
+    lists:foldl(fun add_remote_module/2, Acc, [M0, M1, M2]);
+remote_calls_from_expression(_, Acc) ->
+    Acc.
 
 
 add_remote_module(?ATOM(M)=_A, Acc) ->

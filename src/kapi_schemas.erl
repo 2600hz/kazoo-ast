@@ -152,11 +152,12 @@ print_dot(Module, #acc{}=Acc) ->
 
 -spec add_app_config(atom(), acc()) -> acc().
 add_app_config(App, Acc) ->
+    ok = application:load(App),
     case application:get_env(App, 'schemas_to_priv') of
         {'ok', 'true'} ->
             ?DEBUG("detected schemas will go in ~s/priv~n", [App]),
             Acc#acc{schema_dir = kz_term:to_binary(code:priv_dir(App))};
-        _ ->
+        _Else ->
             ?DEBUG("schemas for ~s go in default location~n", [App]),
             Acc#acc{schema_dir = kz_ast_util:default_schema_priv_dir()}
     end.
