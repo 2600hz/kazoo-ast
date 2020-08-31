@@ -251,6 +251,7 @@ app_modules(App) ->
         'undefined' ->
             case application:load(App) of
                 'ok' -> app_modules(App);
+                {'error', {'already_loaded', App}} -> app_modules(App);
                 _ -> []
             end
     end.
