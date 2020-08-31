@@ -221,16 +221,23 @@ create_schema(Path) ->
 project_apps() ->
     Core = siblings_of('kazoo_apps'),
     Apps = siblings_of('crossbar'),
-    [App || App <- Core ++ Apps,
-            'false' =/= kz_module:ensure_loaded(App)
-    ].
+
+    lists:foldl(fun add_if_loadable/2, [], Core ++ Apps).
+
+add_if_loadable(App, Acc) ->
+    case application:load(App) of
+        {'error', _Reason} ->
+            io:format("  app ~p not loaded: ~p~n", [App, _Reason]),
+            Acc;
+        'ok' -> [App | Acc]
+    end.
 
 siblings_of(App) ->
+    Ignore = [<<".git">>, <<".erlang.mk">>, <<".circleci">>],
     [dir_to_app_name(Dir)
      || Dir <- filelib:wildcard(filename:join([code:lib_dir(App), "..", "*"])),
         filelib:is_dir(Dir),
-        ".git" =/= filename:basename(Dir),
-        ".erlang.mk" =/= filename:basename(Dir)
+        not lists:member(kz_term:to_binary(filename:basename(Dir)), Ignore)
     ].
 
 dir_to_app_name(Dir) ->
