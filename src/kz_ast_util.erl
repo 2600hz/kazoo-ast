@@ -205,17 +205,26 @@ api_path(Base) ->
                   ,Base
                   ]).
 
--spec ensure_file_exists(binary()) -> 'ok' | {'ok', any()}.
+-spec ensure_file_exists(binary()) -> 'ok'.
 ensure_file_exists(Path) ->
     case filelib:is_regular(Path) of
         'false' -> create_schema(Path);
         'true' -> 'ok'
     end.
 
--spec create_schema(binary()) -> {'ok', any()}.
+-spec create_schema(binary()) -> 'ok'.
 create_schema(Path) ->
-    Skel = schema_path(<<"skel.json">>),
-    {'ok', _} = file:copy(Skel, Path).
+    SkelJObj = skel_schema(),
+    'ok' = kz_os:make_dir(Path, 'true'),
+    'ok' = file:write_file(Path, [kz_json:encode(SkelJObj), "\n"]).
+
+skel_schema() ->
+    kz_json:from_list([{<<"$schema">>, <<"http://json-schema.org/draft-04/schema#">>}
+                      ,{<<"_id">>, <<"skel">>}
+                      ,{<<"description">>, <<"Skeleton JSON schema">>}
+                      ,{<<"properties">>, kz_json:new()}
+                      ,{<<"type">>, <<"object">>}
+                      ]).
 
 -spec project_apps() -> [atom()].
 project_apps() ->
