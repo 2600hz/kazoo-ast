@@ -40,7 +40,7 @@ to_schema_doc(M) ->
 
 to_schema_doc(M, Usage) ->
     <<"konami_pro_", Base/binary>> = kz_term:to_binary(M),
-    Schema = kz_ast_util:schema_path(<<"metaflows.", Base/binary, ".json">>),
+    Schema = kz_ast_util:schema_path(<<"metaflows.", Base/binary, ".json">>, code:priv_dir('konami_pro')),
     _ = kz_ast_util:ensure_file_exists(Schema),
     update_schema(Base, Schema, Usage),
     update_doc(Base, Schema).
