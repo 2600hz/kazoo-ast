@@ -44,18 +44,26 @@ to_schema_doc(M) ->
     to_schema_doc(M, process(M)).
 
 to_schema_doc(M, Usage) ->
-    to_schema_doc('callflow', M, Usage).
+    {'ok', App} = application:get_application(M),
+    to_schema_doc(App, M, Usage).
 
 to_schema_doc(App, M, Usage) ->
     <<"cf_", Action/binary>> = kz_term:to_binary(M),
-    AppPriv = code:priv_dir(App),
+    AppPriv = app_priv_dir(App),
     Schema = kz_ast_util:schema_path(<<"callflows.", Action/binary, ".json">>, AppPriv),
     _ = kz_ast_util:ensure_file_exists(Schema),
     update_schema(Action, Schema, Usage),
     update_doc(Action, Schema, App).
 
+%% callflows' schemas have traditionally gone in crossbar's priv dir
+app_priv_dir('callflow') -> app_priv_dir('crossbar');
+app_priv_dir(App) -> code:priv_dir(App).
+
+app_ref_doc_path(App, Action) ->
+    filename:join([code:lib_dir(App), "doc", "ref", <<Action/binary,".md">>]).
+
 update_doc(Action, Schema, App) ->
-    RefPath = filename:join([code:lib_dir(App), "doc", "ref", <<Action/binary,".md">>]),
+    RefPath = app_ref_doc_path(App, Action),
 
     Contents = build_ref_doc(Action, Schema),
     'ok' = kz_os:make_dir(RefPath, 'true'),
@@ -527,7 +535,7 @@ arg_list_has_data_var(DataName, Aliases, [?MOD_FUN_ARGS('kz_json'
                                                        ,'set_value'
                                                        ,Args
                                                        )
-                                          | T
+                                         | T
                                          ]) ->
     case arg_list_has_data_var(DataName, Aliases, Args) of
         {DataName, _} -> ?LOG_DEBUG("  sublist had ~p~n", [DataName]), {DataName, T};
@@ -538,7 +546,7 @@ arg_list_has_data_var(DataName, Aliases, [?MOD_FUN_ARGS('kz_doc'
                                                        ,'set_id'
                                                        ,Args
                                                        )
-                                          | T
+                                         | T
                                          ]) ->
     case arg_list_has_data_var(DataName, Aliases, Args) of
         {DataName, _} -> ?LOG_DEBUG("  sublist had ~p~n", [DataName]), {DataName, T};
@@ -849,7 +857,7 @@ data_index(DataName
           ,[?MOD_FUN_ARGS('kz_json', 'set_value'
                          ,Args
                          )
-            | As
+           | As
            ]
           ,Index
           ) ->
@@ -861,7 +869,7 @@ data_index(DataName
           ,[?MOD_FUN_ARGS('kz_doc', 'set_id'
                          ,Args
                          )
-            | As
+           | As
            ]
           ,Index
           ) ->
