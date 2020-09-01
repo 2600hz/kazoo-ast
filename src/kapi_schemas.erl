@@ -71,7 +71,15 @@ maybe_update_schema(PrivDir, GeneratedJObj, ID) ->
     case kz_json:are_equal(ExistingJObj, UpdatedSchema) of
         'true' -> 'ok';
         'false' ->
-            'ok' = file:write_file(Path, kz_json:encode(UpdatedSchema))
+            write_schema(Path, kz_json:encode(UpdatedSchema))
+    end.
+
+write_schema(Path, JSON) ->
+    case file:write_file(Path, JSON) of
+        'ok' -> 'ok';
+        {'error', 'enoent'} ->
+            'ok' = kz_os:make_dir(Path, 'true'),
+            'ok' = file:write_file(Path, JSON)
     end.
 
 -spec existing_schema(file:filename_all()) -> kz_json:object().
