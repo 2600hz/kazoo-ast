@@ -562,7 +562,7 @@ to_swagger_path(_EndpointName, EndpointMeta, Acc) ->
     F = fun(Path, PathMeta, Acc1) -> to_swagger_path(Path, PathMeta, Acc1, SchemaParameter) end,
     kz_json:foldl(F, Acc, Paths).
 
--spec to_swagger_path(kz_json:key(), kz_json:object(), kz_json:object(), kz_json:api_object()) -> kz_json:object().
+-spec to_swagger_path(kz_json:key(), kz_json:object(), kz_json:object(), kz_term:api_object()) -> kz_json:object().
 to_swagger_path(Path, PathMeta, Acc, SchemaParameter) ->
     Methods = kz_json:get_list_value(<<"allowed_methods">>, PathMeta, []),
     F = fun(Method, Acc1) -> add_swagger_path(Method, Acc1, Path, SchemaParameter) end,

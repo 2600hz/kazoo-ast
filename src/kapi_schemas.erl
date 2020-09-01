@@ -60,7 +60,7 @@ maybe_update_schema(PrivDir, API) ->
 maybe_update_schema(_PrivDir, _JObj, 'undefined') ->
     ?DEBUG("no ID in JSON, not writing to ~s~n", [_PrivDir]);
 maybe_update_schema(PrivDir, GeneratedJObj, ID) ->
-    ?DEBUG("adding ~s to ~s: ~s", [ID, PrivDir, kz_json:encode(GeneratedJObj)]),
+    ?DEBUG("adding ~s to ~s: ~s~n", [ID, PrivDir, kz_json:encode(GeneratedJObj)]),
     Path = kz_ast_util:schema_path(<<ID/binary, ".json">>, PrivDir),
     ExistingJObj = existing_schema(Path),
     MergedJObj = kz_json:merge(fun kz_json:merge_left/2

@@ -226,10 +226,11 @@ project_apps() ->
 
 add_if_loadable(App, Acc) ->
     case application:load(App) of
+        'ok' -> [App | Acc];
+        {'error', {'already_loaded', App}} -> [App | Acc];
         {'error', _Reason} ->
             io:format("  app ~p not loaded: ~p~n", [App, _Reason]),
-            Acc;
-        'ok' -> [App | Acc]
+            Acc
     end.
 
 siblings_of(App) ->
@@ -250,6 +251,7 @@ app_modules(App) ->
         'undefined' ->
             case application:load(App) of
                 'ok' -> app_modules(App);
+                {'error', {'already_loaded', App}} -> app_modules(App);
                 _ -> []
             end
     end.
