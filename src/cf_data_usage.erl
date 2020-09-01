@@ -44,8 +44,11 @@ to_schema_doc(M) ->
     to_schema_doc(M, process(M)).
 
 to_schema_doc(M, Usage) ->
-    {'ok', App} = application:get_application(M),
-    to_schema_doc(App, M, Usage).
+    case application:get_application(M) of
+        {'ok', App} -> to_schema_doc(App, M, Usage);
+        'undefined' ->
+            io:format("failed to find application for module ~p~n", [M])
+    end.
 
 to_schema_doc(App, M, Usage) ->
     <<"cf_", Action/binary>> = kz_term:to_binary(M),
