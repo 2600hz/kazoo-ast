@@ -71,7 +71,15 @@ maybe_update_schema(PrivDir, GeneratedJObj, ID) ->
     case kz_json:are_equal(ExistingJObj, UpdatedSchema) of
         'true' -> 'ok';
         'false' ->
-            'ok' = file:write_file(Path, kz_json:encode(UpdatedSchema))
+            write_schema(Path, kz_json:encode(UpdatedSchema))
+    end.
+
+write_schema(Path, JSON) ->
+    case file:write_file(Path, JSON) of
+        'ok' -> 'ok';
+        {'error', 'enoent'} ->
+            'ok' = kz_os:make_dir(Path, 'true'),
+            'ok' = file:write_file(Path, JSON)
     end.
 
 -spec existing_schema(file:filename_all()) -> kz_json:object().
@@ -150,17 +158,17 @@ print_dot(<<_/binary>>, #acc{}=Acc) ->
 print_dot(Module, #acc{}=Acc) ->
     print_dot(kz_term:to_binary(Module), Acc).
 
--spec load_app(atom()) -> ok | {error, any()}.
+-spec load_app(atom()) -> 'ok' | {'error', any()}.
 load_app(App) ->
     case application:load(App) of
-        ok -> ok;
-        {error, {already_loaded, App}} -> ok;
+        'ok' -> 'ok';
+        {'error', {'already_loaded', App}} -> 'ok';
         Other -> Other
     end.
 
 -spec add_app_config(atom(), acc()) -> acc().
 add_app_config(App, Acc) ->
-    ok = load_app(App),
+    'ok' = load_app(App),
     case application:get_env(App, 'schemas_to_priv') of
         {'ok', 'true'} ->
             ?DEBUG("detected schemas will go in ~s/priv~n", [App]),
