@@ -30,7 +30,7 @@
 -spec to_schema_docs() -> 'ok'.
 to_schema_docs() ->
     io:format("processing callflow data usage: "),
-    _ = [to_schema_doc(M, Usage) || {M, Usage} <- process()],
+    _ = [to_schema_doc(App, M, Usage) || {App, M, Usage} <- process()],
     io:format(" done~n").
 
 -spec to_schema_docs([module()]) -> 'ok'.
@@ -44,15 +44,32 @@ to_schema_doc(M) ->
     to_schema_doc(M, process(M)).
 
 to_schema_doc(M, Usage) ->
-    <<"cf_", Base/binary>> = kz_term:to_binary(M),
-    Schema = kz_ast_util:schema_path(<<"callflows.", Base/binary, ".json">>),
-    _ = kz_ast_util:ensure_file_exists(Schema),
-    update_schema(Base, Schema, Usage),
-    update_doc(Base, Schema).
+    case application:get_application(M) of
+        {'ok', App} -> to_schema_doc(App, M, Usage);
+        'undefined' ->
+            io:format("failed to find application for module ~p~n", [M])
+    end.
 
-update_doc(Base, Schema) ->
-    RefPath = filename:join([code:lib_dir('callflow'), "doc", "ref", <<Base/binary,".md">>]),
-    Contents = build_ref_doc(Base, Schema),
+to_schema_doc(App, M, Usage) ->
+    <<"cf_", Action/binary>> = kz_term:to_binary(M),
+    AppPriv = app_priv_dir(App),
+    Schema = kz_ast_util:schema_path(<<"callflows.", Action/binary, ".json">>, AppPriv),
+    _ = kz_ast_util:ensure_file_exists(Schema),
+    update_schema(Action, Schema, Usage),
+    update_doc(Action, Schema, App).
+
+%% callflows' schemas have traditionally gone in crossbar's priv dir
+app_priv_dir('callflow') -> app_priv_dir('crossbar');
+app_priv_dir(App) -> code:priv_dir(App).
+
+app_ref_doc_path(App, Action) ->
+    filename:join([code:lib_dir(App), "doc", "ref", <<Action/binary,".md">>]).
+
+update_doc(Action, Schema, App) ->
+    RefPath = app_ref_doc_path(App, Action),
+
+    Contents = build_ref_doc(Action, Schema),
+    'ok' = kz_os:make_dir(RefPath, 'true'),
     'ok' = file:write_file(RefPath, Contents).
 
 build_ref_doc(Base, Schema) ->
@@ -77,7 +94,7 @@ ensure_id(Base, Schema) ->
         ID -> Schema;
         _Id ->
             ?LOG_DEBUG("updating _id from ~p to ~p~n", [_Id, ID]),
-            kz_json:set_value(<<"_id">>, ID, Schema)
+            kz_doc:set_id(Schema, ID)
     end.
 
 augment_schema(Schema, Usage) ->
@@ -207,13 +224,37 @@ guess_type(_F, _D) ->
     ?LOG_DEBUG("couldn't guess ~p(~p)~n", [_F, _D]),
     'undefined'.
 
--spec process() -> [{module(), list()}].
+%% {App, CfAction, Usages}
+-record(acc, {current_application :: atom()
+             ,project_schemas = [] :: [{atom(), module(), list()}]
+             }).
+-spec process() -> [{atom(), module(), list()}].
 process() ->
-    Usages = [{Module, Usages} ||
-                 Module <- kz_ast_util:app_modules('callflow'),
-                 (Usages = process(Module)) =/= 'undefined'
-             ],
-    Usages.
+    io:format("processing kapi modules: "),
+    Options = [{'module', fun print_dot/2}
+              ,{'application', fun set_current_application/2}
+              ,{'accumulator', #acc{}}
+              ],
+    #acc{project_schemas=Schemas} = kazoo_ast:walk_project(Options),
+    io:format(" done~n", []),
+    Schemas.
+
+set_current_application(App, Acc) ->
+    Acc#acc{current_application=App}.
+
+print_dot(Module
+         ,#acc{current_application=CA
+              ,project_schemas=PS
+              }=Acc
+         ) ->
+    case is_action_module(Module) of
+        'false' ->
+            {'skip', Acc};
+        'true' ->
+            io:format("."),
+            Usages = process_action(Module),
+            Acc#acc{project_schemas=[{CA, Module, Usages} | PS]}
+    end.
 
 -spec process(module()) -> list().
 process(Module) when is_atom(Module) ->
@@ -497,7 +538,7 @@ arg_list_has_data_var(DataName, Aliases, [?MOD_FUN_ARGS('kz_json'
                                                        ,'set_value'
                                                        ,Args
                                                        )
-                                          | T
+                                         | T
                                          ]) ->
     case arg_list_has_data_var(DataName, Aliases, Args) of
         {DataName, _} -> ?LOG_DEBUG("  sublist had ~p~n", [DataName]), {DataName, T};
@@ -508,7 +549,7 @@ arg_list_has_data_var(DataName, Aliases, [?MOD_FUN_ARGS('kz_doc'
                                                        ,'set_id'
                                                        ,Args
                                                        )
-                                          | T
+                                         | T
                                          ]) ->
     case arg_list_has_data_var(DataName, Aliases, Args) of
         {DataName, _} -> ?LOG_DEBUG("  sublist had ~p~n", [DataName]), {DataName, T};
@@ -819,7 +860,7 @@ data_index(DataName
           ,[?MOD_FUN_ARGS('kz_json', 'set_value'
                          ,Args
                          )
-            | As
+           | As
            ]
           ,Index
           ) ->
@@ -831,7 +872,7 @@ data_index(DataName
           ,[?MOD_FUN_ARGS('kz_doc', 'set_id'
                          ,Args
                          )
-            | As
+           | As
            ]
           ,Index
           ) ->

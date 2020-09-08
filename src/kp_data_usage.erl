@@ -40,7 +40,7 @@ to_schema_doc(M) ->
 
 to_schema_doc(M, Usage) ->
     <<"konami_pro_", Base/binary>> = kz_term:to_binary(M),
-    Schema = kz_ast_util:schema_path(<<"metaflows.", Base/binary, ".json">>),
+    Schema = kz_ast_util:schema_path(<<"metaflows.", Base/binary, ".json">>, code:priv_dir('konami_pro')),
     _ = kz_ast_util:ensure_file_exists(Schema),
     update_schema(Base, Schema, Usage),
     update_doc(Base, Schema).
@@ -494,7 +494,7 @@ arg_list_has_data_var(DataName, Aliases, [?MOD_FUN_ARGS('kz_json'
                                                        ,'set_value'
                                                        ,Args
                                                        )
-                                          | T
+                                         | T
                                          ]) ->
     ?DEBUG("  checking set_value for Data: ~p~n", [Args]),
     case arg_list_has_data_var(DataName, Aliases, Args) of
@@ -506,7 +506,7 @@ arg_list_has_data_var(DataName, Aliases, [?MOD_FUN_ARGS('kz_json'
                                                        ,'set_values'
                                                        ,Args
                                                        )
-                                          | T
+                                         | T
                                          ]) ->
     ?DEBUG("  checking set_values for Data: ~p~n", [Args]),
     case arg_list_has_data_var(DataName, Aliases, Args) of
@@ -812,7 +812,7 @@ data_index(DataName
           ,[?MOD_FUN_ARGS('kz_json', 'set_value'
                          ,Args
                          )
-            | As
+           | As
            ]
           ,Index
           ) ->
@@ -824,7 +824,7 @@ data_index(DataName
           ,[?MOD_FUN_ARGS('kz_json', 'set_values'
                          ,Args
                          )
-            | As
+           | As
            ]
           ,Index
           ) ->
