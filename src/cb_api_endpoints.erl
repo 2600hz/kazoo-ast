@@ -782,6 +782,7 @@ path_name(Module) ->
         {'match', [<<"rates">>=Name]} -> Name;
         {'match', [<<"schemas">>=Name]} -> Name;
         {'match', [<<"sup">>=Name]} -> Name;
+        {'match', [<<"scopes">>=Name]} -> Name;
         {'match', [<<"system_configs">>=Name]} -> Name;
         {'match', [<<"system_status">>=Name]} -> Name;
         {'match', [<<"token_auth">>=Name]} -> Name;
@@ -1227,6 +1228,7 @@ def_path_param(OasVersion, <<"{USERNAME}">>=P) -> base_path_param(P, OasVersion)
 def_path_param(OasVersion, <<"{VM_MSG_ID}">>=P) -> base_path_param(P, OasVersion);
 def_path_param(OasVersion, <<"{WHITELABEL_DOMAIN}">>=P) -> base_path_param(P, OasVersion);
 def_path_param(OasVersion, <<"{SCOPE}">>=P) -> base_path_param(P, OasVersion);
+def_path_param(OasVersion, <<"{SCOPE_RESTRICTION}">>=P) -> base_path_param(P, OasVersion);
 
 %% For all the edge cases out there:
 def_path_param(OasVersion, <<"{MODB_SUFFIX}">>=P) ->
