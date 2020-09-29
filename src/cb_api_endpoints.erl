@@ -1226,6 +1226,7 @@ def_path_param(OasVersion, <<"{TRANSACTION_ID}">>=P) -> base_path_param(P, OasVe
 def_path_param(OasVersion, <<"{USERNAME}">>=P) -> base_path_param(P, OasVersion);
 def_path_param(OasVersion, <<"{VM_MSG_ID}">>=P) -> base_path_param(P, OasVersion);
 def_path_param(OasVersion, <<"{WHITELABEL_DOMAIN}">>=P) -> base_path_param(P, OasVersion);
+def_path_param(OasVersion, <<"{SCOPE}">>=P) -> base_path_param(P, OasVersion);
 
 %% For all the edge cases out there:
 def_path_param(OasVersion, <<"{MODB_SUFFIX}">>=P) ->
