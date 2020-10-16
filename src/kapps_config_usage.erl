@@ -58,7 +58,7 @@ update_schema({PrivDir, Schemas}) ->
                    ,Schemas
                    ).
 
--spec update_schema(kz_json:key(), kz_json:json_object(), file:filename_all()) -> 'ok'.
+-spec update_schema(kz_json:key(), kz_json:object(), file:filename_all()) -> 'ok'.
 update_schema(Name, AutoGenSchema, PrivDir) ->
     ?DEBUG("~s detected ~p~n", [Name, AutoGenSchema]),
     AccountSchema = account_properties(AutoGenSchema),
