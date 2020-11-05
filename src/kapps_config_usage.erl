@@ -184,9 +184,14 @@ add_module_app_config(Module, Acc) ->
     case print_dot(Module, Acc) of
         {'skip', NewAcc} -> NewAcc;
         NewAcc ->
-            {'ok', App} = application:get_application(Module),
-            add_app_config(App, NewAcc)
+            add_module_app_config(Module, NewAcc, application:get_application(Module))
     end.
+
+add_module_app_config(_Module, Acc, {'ok', App}) ->
+    add_app_config(App, Acc);
+add_module_app_config(_Module, _Acc, 'undefined') ->
+    io:format("failed to get application of module ~p~n", [_Module]),
+    exit(1).
 
 -spec add_app_config(atom(), acc()) -> acc().
 add_app_config(App, Acc) ->
