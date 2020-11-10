@@ -42,6 +42,8 @@ to_schema_docs() ->
 
 -spec to_schema_docs(atom() | [atom()]) -> 'ok'.
 to_schema_docs(Modules) when is_list(Modules) ->
+    %% force load applications
+    _ = kz_ast_util:project_apps(),
     kz_json:foreach(fun update_schema/1, process_modules(Modules));
 to_schema_docs(App) ->
     kz_json:foreach(fun update_schema/1, process_app(App)).
@@ -56,7 +58,7 @@ update_schema({PrivDir, Schemas}) ->
                    ,Schemas
                    ).
 
--spec update_schema(kz_json:key(), kz_json:json_object(), file:filename_all()) -> 'ok'.
+-spec update_schema(kz_json:key(), kz_json:object(), file:filename_all()) -> 'ok'.
 update_schema(Name, AutoGenSchema, PrivDir) ->
     ?DEBUG("~s detected ~p~n", [Name, AutoGenSchema]),
     AccountSchema = account_properties(AutoGenSchema),
@@ -156,10 +158,10 @@ process_app(App) ->
 process_modules(Modules) when is_list(Modules) ->
     io:format("processing kapps_config/kapps_account_config usage: "),
     Options = [{'expression', fun expression_to_schema/2}
-              ,{'module', fun print_dot/2}
+              ,{'module', fun add_module_app_config/2}
               ,{'accumulator', new_acc()}
               ,{'application', fun add_app_config/2}
-              ,{'after_application', fun add_schemas_to_bucket/2}
+              ,{'after_module', fun add_schemas_to_bucket/2}
               ],
     #{'project_schemas' := Usage} = kazoo_ast:walk_modules(Modules, Options),
     io:format(" done~n"),
@@ -177,6 +179,19 @@ new_acc() ->
      ,'app_schemas' => kz_json:new() %% SchemaName => SchemaProperties
      ,'project_schemas' => kz_json:from_list([{kz_ast_util:default_schema_priv_dir(), kz_json:new()}]) %% Path => Schemas
      }.
+
+add_module_app_config(Module, Acc) ->
+    case print_dot(Module, Acc) of
+        {'skip', NewAcc} -> NewAcc;
+        NewAcc ->
+            add_module_app_config(Module, NewAcc, application:get_application(Module))
+    end.
+
+add_module_app_config(_Module, Acc, {'ok', App}) ->
+    add_app_config(App, Acc);
+add_module_app_config(_Module, _Acc, 'undefined') ->
+    io:format("failed to get application of module ~p~n", [_Module]),
+    exit(1).
 
 -spec add_app_config(atom(), acc()) -> acc().
 add_app_config(App, Acc) ->

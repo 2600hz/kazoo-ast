@@ -84,7 +84,7 @@ arg_to_cell([], Acc) -> [<<>> | Acc];
 arg_to_cell(ArgList, Acc) ->
     [["(", kz_binary:join(ArgList, <<",">>), ")"] | Acc].
 
--spec module_to_ref_doc_path(module()) -> filename:filename_all().
+-spec module_to_ref_doc_path(module()) -> file:filename_all().
 module_to_ref_doc_path(Module) ->
     {'ok', App} = application:get_application(Module),
     AppDir = code:lib_dir(App),
