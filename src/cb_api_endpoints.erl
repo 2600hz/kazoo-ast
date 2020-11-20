@@ -46,17 +46,17 @@
 
 -include_lib("ast/src/kz_ast.hrl").
 
--define(DEBUG(F, A), ?DEV_LOG(F, A)).
--define(DEBUG(F), ?DEV_LOG(F)).
+%%-define(DEBUG(F, A), ?DEV_LOG(F, A)).
+%%-define(DEBUG(F), ?DEV_LOG(F)).
 
-%% -define(DEBUG(F, A), ok).
-%% -define(DEBUG(F), ok).
+-define(DEBUG(F, A), ok).
+-define(DEBUG(F), ok).
 
--define(REF_PATH
-       ,code:lib_dir('crossbar'), "doc", "ref"
+-define(REF_PATH(App)
+       ,code:lib_dir(App), "doc", "ref"
        ).
--define(REF_PATH(Module)
-       ,filename:join([?REF_PATH, <<Module/binary,".md">>])
+-define(REF_PATH(App, Module)
+       ,filename:join([?REF_PATH(App), <<Module/binary,".md">>])
        ).
 
 -define(SWAGGER_2_JSON_FILE
@@ -98,7 +98,8 @@ to_ref_doc(_, 'crossbar_filter'=Module) ->
     filters_to_ref_doc(Filters);
 to_ref_doc(App, CBModule) ->
     Path = code:which(CBModule),
-    api_to_ref_doc(hd(process_module(App, Path, []))).
+    [API|_] = process_module(App, Path, []),
+    api_to_ref_doc(API).
 
 -define(FILTER_ROW(Filter, OperatesOn, Description)
        ,[kz_binary:join([Filter, OperatesOn, Description], <<" | ">>), $\n]
@@ -117,7 +118,7 @@ to_ref_doc(App, CBModule) ->
 -spec filters_to_ref_doc(kz_json:object()) -> 'ok'.
 filters_to_ref_doc(Filters) ->
     ReversedTable = kz_json:foldl(fun filter_to_ref_doc/3, [], Filters),
-    'ok' = file:write_file(?REF_PATH(<<"filters">>)
+    'ok' = file:write_file(?REF_PATH('crossbar', <<"filters">>)
                           ,[?FILTER_DOC
                            ,?FILTER_HEADER
                            ,lists:reverse(ReversedTable)]
@@ -126,21 +127,22 @@ filters_to_ref_doc(Filters) ->
 filter_to_ref_doc(Filter, OperatesOn, Acc) ->
     [?FILTER_ROW(<<"`", Filter/binary, "`">>, <<"`", OperatesOn/binary, "`">>, <<>>) | Acc].
 
-api_to_ref_doc([]) -> 'ok';
+api_to_ref_doc([]) -> ?DEV_LOG("nothing to process");
 api_to_ref_doc({Module, Paths}) ->
     api_to_ref_doc(Module, Paths, module_version(Module)).
 
-api_to_ref_doc(Module, Paths, ?CURRENT_VERSION) ->
+api_to_ref_doc(Module, Config, ?CURRENT_VERSION) ->
+    {App, Paths} = props:take_value('app', Config, 'crossbar'),
     EndpointName = base_module_name(Module),
 
     PathToSection = fun(Path, Acc) -> api_path_to_section(Module, Path, Acc) end,
     Sections = lists:foldl(PathToSection, ref_doc_header(EndpointName), Paths),
 
     Doc = lists:reverse(Sections),
-    DocPath = ?REF_PATH(EndpointName),
+    DocPath = ?REF_PATH(App, EndpointName),
     'ok' = file:write_file(DocPath, Doc);
 api_to_ref_doc(_Module, _Paths, _Version) ->
-    'ok'.
+    ?DEV_LOG("ignoring version ~p", [_Version]).
 
 -spec api_path_to_section(atom(), {atom(), http_methods()}, iolist()) -> iolist().
 api_path_to_section(Module, {'allowed_methods', Paths}, Acc) ->
