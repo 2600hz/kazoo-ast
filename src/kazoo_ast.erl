@@ -73,7 +73,7 @@ walk_app(App, Options) ->
 -spec walk_modules(kz_term:atoms(), options()) -> accumulator() | 'undefined'.
 walk_modules(Modules, Options) when is_list(Modules) ->
     ConfigMap = options_to_config(Options),
-    result(process_modules(Modules, ConfigMap)).
+    result(process_walking_modules(Modules, ConfigMap)).
 
 -spec result(config()) -> accumulator() | 'undefined'.
 result(#{'config':='true'
@@ -100,6 +100,37 @@ process_app_modules(_App, {'skip', Config}) -> Config;
 process_app_modules(App, Config) ->
     try process_modules(kz_ast_util:app_modules(App), Config)
     catch 'throw':{'stop', Acc} -> Acc
+    end.
+
+process_walking_modules(Modules, ConfigMap) ->
+    %% we need to process the modules' application first
+    try lists:foldl(fun process_walking_module/2, ConfigMap, Modules)
+    catch  'throw':{'stop', Acc} -> Acc
+    end.
+
+process_walking_module(Module, ConfigMap) ->
+    process_walking_module(Module, ConfigMap, application:get_application(Module)).
+
+process_walking_module(Module, ConfigMap, {'ok', Application}) ->
+    process_module(Module, callback_application(Application, ConfigMap));
+process_walking_module(Module, ConfigMap, 'undefined') ->
+    case find_app_from_path(code:which(Module)) of
+        'undefined' ->
+            io:format("failed to find application for ~p~n", [Module]),
+            process_module(Module, ConfigMap);
+        Application ->
+            process_module(Module, callback_application(Application, ConfigMap))
+    end.
+
+find_app_from_path('cover_compiled') -> 'undefined';
+find_app_from_path('preloaded') -> 'undefined';
+find_app_from_path('non_existing') -> 'undefined';
+find_app_from_path(BeamPath) ->
+    case re:run(BeamPath, <<"/([^/]+)/ebin/[^.]+.beam">>, [{'capture', 'all_but_first', 'binary'}]) of
+        {'match', [AppBin]} ->
+            kz_term:to_atom(AppBin, 'true');
+        'nomatch' ->
+            'undefined'
     end.
 
 process_modules(Modules, Config) ->

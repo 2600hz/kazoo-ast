@@ -383,8 +383,8 @@ guess_type_by_default(?ATOM('false')) -> <<"boolean">>;
 guess_type_by_default(?ATOM(_)) -> <<"string">>;
 guess_type_by_default(?VAR(_V)) -> 'undefined';
 guess_type_by_default(?EMPTY_LIST) -> <<"array">>;
-guess_type_by_default(?LIST(?BINARY_MATCH(_), {nil, _})) -> [<<"string">>];
-guess_type_by_default(?LIST(Head, {nil, _})) -> [guess_type_by_default(Head)];
+guess_type_by_default(?LIST(?BINARY_MATCH(_), ?EMPTY_LIST)) -> [<<"string">>];
+guess_type_by_default(?LIST(Head, ?EMPTY_LIST)) -> [guess_type_by_default(Head)];
 guess_type_by_default(?LIST(Head, Tail)) ->
     H = [guess_type_by_default(Head)],
     T = guess_type_by_default(Tail),
@@ -398,12 +398,12 @@ guess_type_by_default(?FLOAT(_F)) -> <<"float">>;
 guess_type_by_default(?BINARY_OP(_Op, Arg1, _Arg2)) ->
     guess_type_by_default(Arg1);
 guess_type_by_default(?MOD_FUN_ARGS(M, F, [_Cat, _Key]))
-  when M =:= kapps_config;
-       M =:= kapps_account_config ->
+  when M =:= 'kapps_config';
+       M =:= 'kapps_account_config' ->
     guess_type(F, 'undefined');
 guess_type_by_default(?MOD_FUN_ARGS(M, F, [_Cat, _Key, Default |_]))
-  when M =:= kapps_config;
-       M =:= kapps_account_config ->
+  when M =:= 'kapps_config';
+       M =:= 'kapps_account_config' ->
     guess_type(F, Default);
 guess_type_by_default(?MOD_FUN_ARGS('kz_json', 'new', [])) -> <<"object">>;
 guess_type_by_default(?MOD_FUN_ARGS('kz_json', 'from_list', _Args)) -> <<"object">>;

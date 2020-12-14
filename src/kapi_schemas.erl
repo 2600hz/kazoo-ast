@@ -22,7 +22,7 @@
 -include_lib("kazoo_amqp/include/kapi_definition.hrl").
 
 -define(DEBUG(_Fmt, _Args), 'ok').
-%%-define(DEBUG(Fmt, Args), io:format([$~, $p, $  | Fmt], [?LINE | Args])).
+%%-define(DEBUG(Fmt, Args), io:format('user', [$~, $p, $  | Fmt], [?LINE | Args])).
 
 -record(acc, {kapi_name = <<"empty">> :: kz_term:ne_binary() %% s/kapi_(.+)/\1/
              ,api_name = <<"empty">> :: kz_term:api_ne_binary() %% api function
@@ -76,10 +76,11 @@ maybe_update_schema(PrivDir, GeneratedJObj, ID) ->
 
 write_schema(Path, JSON) ->
     case file:write_file(Path, JSON) of
-        'ok' -> 'ok';
+        'ok' -> ?DEBUG("wrote ~s", [Path]);
         {'error', 'enoent'} ->
             'ok' = kz_os:make_dir(Path, 'true'),
-            'ok' = file:write_file(Path, JSON)
+            'ok' = file:write_file(Path, JSON),
+            ?DEBUG("wrote ~s", [Path])
     end.
 
 -spec existing_schema(file:filename_all()) -> kz_json:object().
@@ -125,7 +126,7 @@ process_app(App) ->
 
 -spec process_module(module()) -> kz_json:object().
 process_module(KapiModule) ->
-    io:format("processing kapi module ~s: ", [KapiModule]),
+    io:format('user', "processing kapi module ~s: ", [KapiModule]),
     Options = [{'expression', fun expression_to_schema/2}
               ,{'function', fun set_function/3}
               ,{'module', fun print_dot/2}
@@ -137,7 +138,7 @@ process_module(KapiModule) ->
     Acc = kazoo_ast:walk_modules([KapiModule], Options),
     #acc{project_schemas=Schemas} = add_schemas_to_bucket(KapiModule, Acc),
 
-    io:format(" done~n", []),
+    io:format('user', " done~n", []),
     Schemas.
 
 -spec print_dot(kz_term:ne_binary() | module(), acc()) ->
@@ -184,10 +185,10 @@ add_schemas_to_bucket(_App, #acc{schema_dir = PrivDir
                                 }=Acc) ->
     ProjectSchema = kz_json:get_json_value(PrivDir, ProjectSchemas, kz_json:new()),
 
-    %% ?DEBUG("merging dir ~s / app ~p into proj ~p~n", [PrivDir, AppSchemas, ProjectSchema]),
+    ?DEBUG("merging dir ~s / app ~p into proj ~p~n", [PrivDir, AppSchemas, ProjectSchema]),
 
     UpdatedSchema = kz_json:merge(ProjectSchema, AppSchemas),
-    %% ?DEBUG("merged: ~p~n", [UpdatedSchema]),
+    ?DEBUG("merged: ~p~n", [UpdatedSchema]),
 
     Acc#acc{app_schemas = kz_json:new()
            ,project_schemas = kz_json:set_value(PrivDir, UpdatedSchema, ProjectSchemas)
@@ -411,7 +412,7 @@ add_field([_|_]=Fields, Schema) ->
 
     Guessed = guess_field_default(lists:last(Fields)),
 
-    %% ?DEBUG("adding path ~p guessed type ~p~n", [Path, Guessed]),
+    ?DEBUG("adding path ~p guessed type ~p~n", [Path, Guessed]),
 
     Properties = kz_json:get_json_value(Path, Schema, kz_json:new()),
 
@@ -471,6 +472,10 @@ guess_field_default(<<"Bridge-Actions">>) ->
     kz_json:from_list([{<<"type">>, <<"object">>}]);
 guess_field_default(<<"Endpoint-Actions">>) ->
     kz_json:from_list([{<<"type">>, <<"object">>}]);
+guess_field_default(<<"Cost-Parameters">>) ->
+    kz_json:from_list([{<<"type">>, <<"object">>}
+                      ,{<<"properties">>, cost_parameters_schema()}
+                      ]);
 guess_field_default(Field) ->
     guess_field_default_rev(kz_json:normalize_key(kz_binary:reverse(Field))).
 
@@ -613,6 +618,10 @@ validator_properties(_Fields, {'function', 'binding_digit_timeout_v', 1}) ->
                       ,{<<"minimum">>, 0}
                       ]);
 validator_properties(_Fields, {'function', 'has_cost_parameters', 1}) ->
+    kz_json:from_list([{<<"type">>, <<"object">>}
+                      ,{<<"properties">>, cost_parameters_schema()}
+                      ]);
+validator_properties(_Fields, {'function', '-fun.has_cost_parameters/1-', 1}) ->
     kz_json:from_list([{<<"type">>, <<"object">>}
                       ,{<<"properties">>, cost_parameters_schema()}
                       ]);
