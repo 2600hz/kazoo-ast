@@ -1,5 +1,5 @@
 %%%-----------------------------------------------------------------------------
-%%% @copyright (C) 2015-2020, 2600Hz
+%%% @copyright (C) 2015-2021, 2600Hz
 %%% @doc Modules to create a reference documents from Crossbar API modules.
 %%% @author James Aimonetti
 %%% This Source Code Form is subject to the terms of the Mozilla Public
@@ -1066,11 +1066,16 @@ find_content_types_in_clause(?LIST(?TUPLE(?CONTENT_TYPE_BINS(Type, SubType))
           'nomatch'.
 grep_cb_module(Module) when is_atom(Module) ->
     grep_cb_module(kz_term:to_binary(Module));
-grep_cb_module(?NE_BINARY=Module) ->
-    re:run(Module
-          ,<<"^cb_([a-z_]+?)(?:_(v[0-9]))?\$">>
-          ,[{'capture', 'all_but_first', 'binary'}]
-          ).
+grep_cb_module(<<"cb_", Module/binary>>) ->
+    Reverse = kz_binary:reverse(Module),
+    case re:run(Reverse, <<"^([0-9]+v)_(.*)\$">>, [{'capture', 'all_but_first', 'binary'}]) of
+        'nomatch' ->
+            {'match', [Module]};
+        {'match', [Version, Name]} ->
+            {'match', [kz_binary:reverse(Name), kz_binary:reverse(Version)]}
+    end;
+grep_cb_module(_) ->
+    'no_match'.
 
 -spec to_swagger_parameters(kz_term:ne_binaries()) -> kz_json:object().
 to_swagger_parameters(Paths) ->
