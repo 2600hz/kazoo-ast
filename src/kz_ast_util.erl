@@ -421,18 +421,26 @@ property_to_row(SchemaJObj, Names, Settings, {Table, Refs}) ->
                                ).
 
 settings_description(Settings) ->
-    case kz_json:get_ne_binary_value(<<"description">>, Settings) of
-        'undefined' ->
-            case kz_json:get_value(<<"$ref">>, Settings) of
-                'undefined' -> <<" ">>;
-                RefSchemaName ->
-                    ?LOG_INFO("using ref ~s description", [RefSchemaName]),
-                    {'ok', RefSchema} = kz_json_schema:fload(RefSchemaName),
-                    kz_json:get_ne_binary_value(<<"description">>, RefSchema, <<" ">>)
-            end;
-        Description -> Description
-    end.
+    maybe_description(Settings, kz_json:get_ne_binary_value(<<"description">>, Settings)).
 
+maybe_description(Settings, 'undefined') ->
+    maybe_description_from_ref(Settings, kz_json:get_value(<<"$ref">>, Settings));
+maybe_description(_Settings, Description) ->
+    Description.
+
+maybe_description_from_ref(Settings, 'undefined') ->
+    maybe_description_from_one_or_any(kz_json:get_first_defined([<<"oneOf">>, <<"anyOf">>], Settings));
+maybe_description_from_ref(_Settings, RefSchemaName) ->
+    ?LOG_INFO("using ref ~s description", [RefSchemaName]),
+    {'ok', RefSchema} = kz_json_schema:fload(RefSchemaName),
+    kz_json:get_ne_binary_value(<<"description">>, RefSchema, <<" ">>).
+
+maybe_description_from_one_or_any('undefined') ->
+    <<" ">>;
+maybe_description_from_one_or_any([]) ->
+    <<" ">>;
+maybe_description_from_one_or_any(Schemas) ->
+    kz_json:find(<<"description">>, Schemas, <<" ">>).
 
 -spec maybe_add_ref(kz_term:ne_binaries(), kz_json:object()) -> kz_term:ne_binaries().
 maybe_add_ref(Refs, Settings) ->
