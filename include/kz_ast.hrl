@@ -15,7 +15,6 @@
                     ,types = [] :: ast_types()
                     ,behaviour :: atom()
                     }).
-
 -type module_ast() :: #module_ast{}.
 
 %% Helper macros for processing Erlang AST forms

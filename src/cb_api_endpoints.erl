@@ -396,7 +396,7 @@ write_swagger_file(Props, <<"oas3">>) ->
                           ).
 
 -spec write_oas3_path(kz_term:ne_binary(), map(), 'ok') -> 'ok'.
-write_oas3_path(Endpoint, Meta, _) ->
+write_oas3_path(Endpoint, Meta, 'ok') ->
     'ok' = file:write_file(filename:join([code:priv_dir('crossbar'), "oas3/paths", <<Endpoint/binary, ".yml">>])
                           ,kz_yaml:encode(Meta, #{sort_keys => 'true'})
                           ).
@@ -473,26 +473,30 @@ add_operation_object(EndpointName, EndpointMeta, Path, Method, PathItemObject) -
                    }.
 
 -spec add_operation_summary(map(), kz_term:ne_binary(), kz_json:object(), kz_term:ne_binary(), kz_term:ne_binary()) -> map().
-add_operation_summary(Operation, EndpointName, _, Path, Method) ->
+add_operation_summary(Operation, EndpointName, _EPMeta, Path, Method) ->
     Operation#{<<"summary">> => generate_method_summary(EndpointName, Method, lists:last(split_url(Path)))}.
 
 -spec add_operation_id(map(), kz_term:ne_binary(), kz_json:object(), kz_term:ne_binary(), kz_term:ne_binary()) -> map().
-add_operation_id(Operation, _EndpointName, _, Path, Method) ->
+add_operation_id(Operation, _EndpointName, _EPMeta, Path, Method) ->
     Operation#{<<"operationId">> => make_camel_case_path(Path, kz_binary:to_camel_case(Method))}.
 
 -spec add_operation_parameters(map(), kz_term:ne_binary(), kz_json:object(), kz_term:ne_binary(), kz_term:ne_binary()) -> map().
-add_operation_parameters(Operation, _, _, Path, Method) ->
-    Operation#{<<"parameters">> => [kz_json:to_map(Param) || Param <- make_parameters(Path, Method, 'undefined', <<"oas3">>)]}.
+add_operation_parameters(Operation, _EPName, _EPMeta, Path, Method) ->
+    Operation#{<<"parameters">> =>
+                   [kz_json:to_map(Param)
+                    || Param <- make_parameters(Path, Method, 'undefined', <<"oas3">>)
+                   ]
+              }.
 
 -spec add_operation_request_body(map(), kz_term:ne_binary(), kz_json:object(), kz_term:ne_binary(), kz_term:ne_binary()) -> map().
-add_operation_request_body(Operation, EndpointName, EndpointMeta, _, Method)
+add_operation_request_body(Operation, EndpointName, EndpointMeta, _Path, Method)
   when Method =:= <<"put">>;
        Method =:= <<"post">>;
        Method =:= <<"patch">> ->
     case kz_json:get_ne_binary_value(<<"schema">>, EndpointMeta) of
         'undefined' -> Operation;
         %% These do not have schemas
-        <<"ip_auth">> -> undefined;
+        <<"ip_auth">> -> 'undefined';
         %% These have schemas
         _ ->
             RequestBody = #{<<"content">> =>
@@ -586,24 +590,24 @@ add_swagger_path(Method, Acc, Path, SchemaParameter) ->
 -spec make_parameters(kz_term:ne_binary(), kz_term:ne_binary(), kz_term:api_object(), kz_term:ne_binary()) -> kz_json:objects().
 make_parameters(Path, Method, SchemaParameter, OasVersion) ->
     [Parameter
-     || F <- [fun (P, M) -> maybe_add_schema(P, M, SchemaParameter, OasVersion) end
-             ,fun (P, M) -> auth_token_param(P, M, OasVersion) end
-             ,fun (P, M) -> path_params(P, M, OasVersion) end
+     || F <- [fun (_P, M) -> maybe_add_schema(M, SchemaParameter, OasVersion) end
+             ,fun (P, _M) -> auth_token_param(P, OasVersion) end
+             ,fun (P, _M) -> path_params(P, OasVersion) end
              ],
         Parameter <- F(Path, Method),
         not kz_term:is_empty(Parameter)
     ].
 
--spec maybe_add_schema(any(), kz_term:ne_binary(), kz_term:api_object(), kz_term:ne_binary()) -> kz_json:objects().
-maybe_add_schema(_Path, _Method, 'undefined', _) ->
+-spec maybe_add_schema(kz_term:ne_binary(), kz_term:api_object(), kz_term:ne_binary()) -> kz_json:objects().
+maybe_add_schema(_Method, 'undefined', _OasVsn) ->
     [];
-maybe_add_schema(_Path, _Method, _Schema, <<"oas3">>) ->
+maybe_add_schema(_Method, _Schema, <<"oas3">>) ->
     [];
-maybe_add_schema(_Path, Method, Schema, _OasVersion)
+maybe_add_schema(Method, Schema, _OasVersion)
   when Method =:= <<"put">>;
        Method =:= <<"post">> ->
     [Schema];
-maybe_add_schema(_Path, _Method, _Parameters, _) ->
+maybe_add_schema(_Method, _Parameters, _OasVsn) ->
     [].
 
 -spec swagger_body_param(kz_json:object()) -> kz_term:api_object().
@@ -622,8 +626,8 @@ swagger_body_param(PathMeta) ->
               ])
     end.
 
--spec auth_token_param(kz_term:ne_binary(), kz_term:ne_binary(), kz_term:ne_binary()) -> kz_json:objects().
-auth_token_param(Path, _Method, OasVersion) ->
+-spec auth_token_param(kz_term:ne_binary(), kz_term:ne_binary()) -> kz_json:objects().
+auth_token_param(Path, OasVersion) ->
     ParamsPath = oas_params_path(OasVersion),
     case is_authtoken_required(Path) of
         'undefined' -> [];
@@ -655,8 +659,8 @@ is_api_c2c_connect(<<"/"?ACCOUNTS_PREFIX"/clicktocall/", _/binary>>=Path) ->
     kz_binary:suffix(<<"/connect">>, Path);
 is_api_c2c_connect(_) -> 'false'.
 
--spec path_params(kz_term:ne_binary(), any(), kz_term:ne_binary()) -> kz_json:objects().
-path_params(Path, _Method, OasVersion) ->
+-spec path_params(kz_term:ne_binary(), kz_term:ne_binary()) -> kz_json:objects().
+path_params(Path, OasVersion) ->
     [path_param(Param, OasVersion)
      || Param <- split_url(Path),
         is_path_variable(Param)
@@ -718,7 +722,7 @@ maybe_include_schema(Acc, EndpointName) ->
     end.
 
 format_path_tokens(<<"/">>) -> [];
-format_path_tokens(<<_/binary>> = Token) ->
+format_path_tokens(<<Token/binary>>) ->
     [format_path_token(Token)];
 format_path_tokens(Tokens) ->
     [format_path_token(Token) || Token <- Tokens, Token =/= <<"/">>].
@@ -880,16 +884,16 @@ process_api_ast(Module, {'raw_abstract_v1', Attributes}) ->
           {module(), [allowed_methods() | content_types_provided()]}.
 process_api_ast_functions(Module, Functions) ->
     {Module
-    ,[process_api_ast_function(Module, F, A, Cs) || {F, A, Cs} <- Functions]
+    ,[process_api_ast_function(F, Cs) || {F, _A, Cs} <- Functions]
     }.
 
--spec process_api_ast_function(module(), atom(), arity(), [erl_parse:abstract_clause()]) ->
+-spec process_api_ast_function(atom(), [erl_parse:abstract_clause()]) ->
           allowed_methods() |
           content_types_provided().
-process_api_ast_function(_Module, 'allowed_methods', _Arity, Clauses) ->
+process_api_ast_function('allowed_methods', Clauses) ->
     Methods = find_http_methods(Clauses),
     {'allowed_methods', Methods};
-process_api_ast_function(_Module, 'content_types_provided', _Arity, Clauses) ->
+process_api_ast_function('content_types_provided', Clauses) ->
     ContentTypes = find_http_methods(Clauses),
     {'content_types_provided', ContentTypes}.
 

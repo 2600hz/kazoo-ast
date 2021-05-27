@@ -45,9 +45,6 @@ to_schema_doc(M, Usage) ->
     update_schema(Base, Schema, Usage),
     update_doc(Base, Schema).
 
--define(SCHEMA_SECTION, <<"#### Schema\n\n">>).
--define(SUB_SCHEMA_SECTION_HEADER, <<"#####">>).
-
 update_doc(Base, Schema) ->
     RefPath = filename:join([code:lib_dir('konami_pro'), "doc", "ref", <<Base/binary,".md">>]),
     'ok' = filelib:ensure_dir(RefPath),

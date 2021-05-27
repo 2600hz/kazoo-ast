@@ -289,19 +289,19 @@ list_return_subtype(_Schema, _Type) ->
     "list()".
 
 default_value(Schema, JSONGetterFun) ->
-    default_value(Schema, JSONGetterFun, kz_json:get_value(<<"default">>, Schema)).
+    default_value_str(JSONGetterFun, kz_json:get_value(<<"default">>, Schema)).
 
-default_value(_Schema, _JSONGetterFun, 'undefined') ->
+default_value_str(_JSONGetterFun, 'undefined') ->
     "'undefined'";
-default_value(_Schema, "get_ne_binary_value", Default) ->
+default_value_str("get_ne_binary_value", Default) ->
     ["<<\"", Default, "\">>"];
-default_value(_Schema, "get_binary_value", Default) ->
+default_value_str("get_binary_value", Default) ->
     ["<<\"", Default, "\">>"];
-default_value(_Schema, "get_list_value", []) ->
+default_value_str("get_list_value", []) ->
     "\[\]";
-default_value(_Schema, _JSONGetterFun, ?EMPTY_JSON_OBJECT) ->
+default_value_str(_JSONGetterFun, ?EMPTY_JSON_OBJECT) ->
     "kz_json:new()";
-default_value(_Schema, _JSONGetterFun, Default) ->
+default_value_str(_JSONGetterFun, Default) ->
     kz_term:to_binary(Default).
 
 default_return_type("kz_json:" ++ Type, "'undefined'") ->

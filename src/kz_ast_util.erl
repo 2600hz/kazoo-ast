@@ -43,7 +43,6 @@
              ]).
 
 -define(SCHEMA_SECTION, <<"#### Schema\n\n">>).
--define(SUB_SCHEMA_SECTION_HEADER, <<"#####">>).
 
 -spec module_ast(atom()) -> {atom(), abstract_code()} | 'undefined'.
 module_ast(M) ->

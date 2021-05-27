@@ -1,10 +1,8 @@
-{application, ast
-,[
-  {description, "Kazoo AST parsing for introspection"}
- ,{vsn, "4.0.0"}
- ,{modules, []}
- ,{registered, []}
- ,{applications, [ kernel
-                 , stdlib
-                 ]}
- ]}.
+{application,ast,
+ [{applications,[kazoo_amqp,kazoo_caches,kazoo_documents,
+                 kazoo_endpoint,kazoo_schemas,kazoo_stdlib,kernel,
+                 lager,stdlib]},
+  {description,"Kazoo AST parsing for introspection"},
+  {vsn,"4.0.0"},
+  {modules,[]},
+  {registered,[]}]}.

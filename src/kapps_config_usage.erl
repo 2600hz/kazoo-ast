@@ -417,15 +417,11 @@ guess_type_by_default(?MOD_FUN_ARGS('kz_term', 'to_integer', _Args)) -> <<"integ
 guess_type_by_default(?MOD_FUN_ARGS('kz_binary', 'rand_hex', _Args)) -> <<"string">>;
 guess_type_by_default(?MOD_FUN_ARGS(_Mod, 'type', [])) -> <<"string">>.
 
-guess_properties(Document, SourceModule, Key=?NE_BINARY, Type, Default) ->
+guess_properties(<<Document/binary>>, SourceModule, <<Key/binary>>, Type, Default) ->
     DescriptionKey = description_key(Document, Key),
 
-    Description =
-        case fetch_description(DescriptionKey) of
-            'undefined' ->
-                kz_binary:join(binary:split(DescriptionKey, <<".">>, ['global']), <<" ">>);
-            D -> D
-        end,
+    Description = build_description(DescriptionKey),
+
     kz_json:from_list(
       [{?SOURCE, SourceModule}
       ,{<<"description">>, Description}
@@ -433,12 +429,18 @@ guess_properties(Document, SourceModule, Key=?NE_BINARY, Type, Default) ->
       | type(Type)
       ]);
 
-guess_properties(Document, Source, [Key], Type, Default)
-  when is_binary(Key) ->
+guess_properties(Document, Source, [<<Key/binary>>], Type, Default) ->
     guess_properties(Document, Source, Key, Type, Default);
 guess_properties(Document, Source, [_Key, ?FIELD_PROPERTIES|_]=Keys, Type, Default) ->
     JustKeys = [K || K <- Keys, ?FIELD_PROPERTIES =/= K],
-    guess_properties(Document, Source, kz_binary:join(JustKeys, $.), Type, Default).
+    guess_properties(Document, Source, kz_binary:join(JustKeys, <<".">>), Type, Default).
+
+build_description(DescriptionKey) ->
+    case fetch_description(DescriptionKey) of
+        'undefined' ->
+            kz_binary:join(binary:split(DescriptionKey, <<".">>, ['global']), <<" ">>);
+        D -> D
+    end.
 
 type(['undefined']) ->
     [{?FIELD_TYPE, <<"array">>}];
@@ -467,6 +469,7 @@ type(<<"float">>) -> [{?FIELD_TYPE, <<"number">>}];
 type(Type) -> [{?FIELD_TYPE, Type}].
 
 description_key(Document, Key) -> <<Document/binary, $., Key/binary>>.
+
 fetch_description(DescriptionKey) ->
     {'ok', Bin} = file:read_file(?SYSTEM_CONFIG_DESCRIPTIONS),
     kz_json:get_ne_binary_value(DescriptionKey, kz_json:decode(Bin)).
