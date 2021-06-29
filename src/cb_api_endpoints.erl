@@ -1,5 +1,5 @@
 %%%-----------------------------------------------------------------------------
-%%% @copyright (C) 2015-2020, 2600Hz
+%%% @copyright (C) 2015-2021, 2600Hz
 %%% @doc Modules to create a reference documents from Crossbar API modules.
 %%% @author James Aimonetti
 %%% This Source Code Form is subject to the terms of the Mozilla Public
@@ -1310,12 +1310,17 @@ def_path_param(OasVersion, <<"{AUDIT_ID}">> = P) ->
 def_path_param(OasVersion, <<"{SOURCE_SERVICE}">> = P) ->
     base_path_param(P, OasVersion);
 
-def_path_param(_OasVersion, _Param) ->
-    io:format('standard_error'
-             ,"~s/" ?FILE ":~p: No Swagger definition of path parameter '~s'.\n"
-             ,[code:lib_dir('ast'), ?LINE, _Param]
-             ),
-    halt(1).
+def_path_param(OasVersion, Param) ->
+    case kz_binary:reverse(Param) of
+        <<"}DI_", _/binary>> ->
+            generic_id_path_param(Param, OasVersion);
+        _Else ->
+            io:format('standard_error'
+                     ,"~s/" ?FILE ":~p: No Swagger definition of path parameter '~s'\n"
+                     ,[code:lib_dir('ast'), ?LINE, Param]
+                     ),
+            halt(1)
+    end.
 
 filters_from_module(Module) ->
     Options = [{'accumulator', kz_json:new()}
