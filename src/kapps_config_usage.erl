@@ -27,6 +27,7 @@
 -define(SOURCE, <<"config_usage_source">>).
 -define(FIELD_DEFAULT, <<"default">>).
 -define(FIELD_PROPERTIES, <<"properties">>).
+-define(FIELD_PATTERNS, <<"patternProperties">>).
 -define(FIELD_TYPE, <<"type">>).
 -define(SYSTEM_CONFIG_DESCRIPTIONS, kz_ast_util:api_path(<<"descriptions.system_config.json">>)).
 -define(UNKNOWN_DEFAULT, 'undefined').
@@ -241,17 +242,17 @@ expression_to_schema(?MOD_FUN_ARGS(Source='kapps_account_config', F='get_with_st
 expression_to_schema(_Expression, Schema) ->
     Schema.
 
-config_to_schema(_, 'get_all_kvs', _Args, Schemas) ->
+config_to_schema(_Source, 'get_all_kvs', _Args, Schemas) ->
     Schemas;
-config_to_schema(_, 'flush', _Args, Schemas) ->
+config_to_schema(_Source, 'flush', _Args, Schemas) ->
     Schemas;
-config_to_schema(_, 'migrate', _Args, Schemas) ->
+config_to_schema(_Source, 'migrate', _Args, Schemas) ->
     Schemas;
-config_to_schema(_, 'get_node_value', _Args, Schemas) ->
+config_to_schema(_Source, 'get_node_value', _Args, Schemas) ->
     Schemas;
-config_to_schema(_, 'get_category', _Args, Schemas) ->
+config_to_schema(_Source, 'get_category', _Args, Schemas) ->
     Schemas;
-config_to_schema(_, 'fetch_category', _Args, Schemas) ->
+config_to_schema(_Source, 'fetch_category', _Args, Schemas) ->
     Schemas;
 config_to_schema(Source, F='get_global', [Account, Cat, K], Schemas) ->
     config_to_schema(Source, F, [Account, Cat, K, 'undefined'], Schemas);
@@ -280,7 +281,7 @@ config_to_schema(Source, F='get_with_strategy', [?BINARY_MATCH([?BINARY_STRING(S
         'undefined' -> Schemas;
         Key -> config_key_to_schema(Source, F, Document, Key, Default, Schemas)
     end;
-config_to_schema(_, 'get_with_strategy', _Args, Schemas) ->
+config_to_schema(_Source, 'get_with_strategy', _Args, Schemas) ->
     Schemas;
 config_to_schema(Source, F, [Cat, K], Schemas) ->
     config_to_schema(Source, F, [Cat, K, 'undefined'], Schemas);
@@ -301,7 +302,7 @@ config_key_to_schema(Source, F, Document, Key, Default, #{app_schemas := Schemas
     Properties = guess_properties(Document, Source, Key, guess_type(F, Default), Default),
     Path = [Document, ?FIELD_PROPERTIES | Key],
 
-    ?DEBUG("setting '~s' from source ~s~n", [kz_binary:join(Path), Source]),
+    ?DEBUG("setting '~s' from source ~s: ~p~n", [kz_binary:join(Path), Source, Properties]),
     Acc#{app_schemas => kz_json:set_value(Path, Properties, Schemas)}.
 
 category_to_document(?VAR(_)) -> 'undefined';
@@ -327,6 +328,8 @@ key_to_key_path(?MOD_FUN_ARGS('kz_term', 'to_binary', [?VAR(_Name)])) ->
 key_to_key_path(?GEN_FUN_ARGS(_F, _Args)) ->
     'undefined';
 
+key_to_key_path(?LIST(?VAR(Name), ?EMPTY_LIST)) ->
+    {'pattern', Name};
 key_to_key_path(?LIST(?VAR(_Name), _Tail)) ->
     'undefined';
 key_to_key_path(?LIST(Head, ?EMPTY_LIST)) ->
@@ -334,13 +337,15 @@ key_to_key_path(?LIST(Head, ?EMPTY_LIST)) ->
 key_to_key_path(?LIST(Head, Tail)) ->
     case key_to_key_path(Tail) of
         'undefined' -> 'undefined';
+        {'pattern', _Name} ->
+            [kz_ast_util:binary_match_to_binary(Head), ?FIELD_PATTERNS, <<".+">>];
         TailV -> [kz_ast_util:binary_match_to_binary(Head), ?FIELD_PROPERTIES | TailV]
     end;
 key_to_key_path(?BINARY_MATCH(K)) ->
     try [kz_ast_util:binary_match_to_binary(K)]
     catch 'error':'function_clause' -> 'undefined'
     end;
-key_to_key_path(_) -> undefined.
+key_to_key_path(_) -> 'undefined'.
 
 guess_type('get_list', Default) -> guess_type_by_default(Default);
 guess_type('is_true', _) -> <<"boolean">>;
@@ -433,6 +438,9 @@ guess_properties(Document, Source, [<<Key/binary>>], Type, Default) ->
     guess_properties(Document, Source, Key, Type, Default);
 guess_properties(Document, Source, [_Key, ?FIELD_PROPERTIES|_]=Keys, Type, Default) ->
     JustKeys = [K || K <- Keys, ?FIELD_PROPERTIES =/= K],
+    guess_properties(Document, Source, kz_binary:join(JustKeys, <<".">>), Type, Default);
+guess_properties(Document, Source, [_Key, ?FIELD_PATTERNS|_]=Keys, Type, Default) ->
+    JustKeys = [K || K <- Keys, ?FIELD_PATTERNS =/= K],
     guess_properties(Document, Source, kz_binary:join(JustKeys, <<".">>), Type, Default).
 
 build_description(DescriptionKey) ->
