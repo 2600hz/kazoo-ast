@@ -315,14 +315,14 @@ json_getter_fun(_App, _Schema, [_|_]=_Type) ->
 json_getter_fun(_App, _Schema, _Type) ->
     {"get_value", "any()"}.
 
-list_return_subtype(App, Schema) ->
-    list_return_subtype(App, Schema, kz_json:get_value([<<"items">>, <<"type">>], Schema)).
-
 oneof(OneOf) ->
     case kz_json:get_value(<<"type">>, OneOf) of
         <<"array">> -> {<<"array">>, kz_json:get_value([<<"items">>, <<"type">>], OneOf)};
         Type -> Type
     end.
+
+list_return_subtype(App, Schema) ->
+    list_return_subtype(App, Schema, kz_json:get_value([<<"items">>, <<"type">>], Schema)).
 
 list_return_subtype(App, Schema, 'undefined') ->
     case kz_json:get_value([<<"items">>, <<"$ref">>], Schema) of
