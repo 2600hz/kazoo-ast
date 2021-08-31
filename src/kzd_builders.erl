@@ -1,5 +1,5 @@
 %%%-----------------------------------------------------------------------------
-%%% @copyright (C) 2018-2019, 2600Hz
+%%% @copyright (C) 2018-2022, 2600Hz
 %%% @doc Kazoo document accessors builder.
 %%% @author James Aimonetti
 %%% This Source Code Form is subject to the terms of the Mozilla Public
@@ -254,7 +254,13 @@ json_getter_fun(_Schema, <<"number">>) ->
 json_getter_fun(Schema, 'undefined') ->
     case kz_json:get_value(<<"$ref">>, Schema) of
         'undefined' ->
-            {"get_value", "any()"};
+            case kz_json:get_list_value(<<"oneOf">>, Schema) of
+                undefined ->
+                    {"get_value", "any()"};
+                OneOf ->
+                    Types = [oneof(Type) || Type <- OneOf],
+                    json_getter_fun(Schema, lists:usort(Types))
+            end;
         Ref ->
             {'ok', RefSchema} = kz_json_schema:fload(Ref),
             json_getter_fun(RefSchema, kz_json:get_value(<<"type">>, RefSchema))
@@ -266,10 +272,18 @@ json_getter_fun(Schema, <<"string">>) ->
         _ ->
             {"get_binary_value", "binary()"}
     end;
+json_getter_fun(_Schema, [{<<"array">>, <<"string">>}, <<"string">>]=_Type) ->
+    {"get_ne_binary_or_binaries", "kz_term:ne_binary_or_binaries()"};
 json_getter_fun(_Schema, [_|_]=_Type) ->
     {"get_value", "any()"}; %% composite type
 json_getter_fun(_Schema, _Type) ->
     {"get_value", "any()"}.
+
+oneof(OneOf) ->
+    case kz_json:get_value(<<"type">>, OneOf) of
+        <<"array">> -> {<<"array">>, kz_json:get_value([<<"items">>, <<"type">>], OneOf)};
+        Type -> Type
+    end.
 
 list_return_subtype(Schema) ->
     list_return_subtype(Schema, kz_json:get_value([<<"items">>, <<"type">>], Schema)).
