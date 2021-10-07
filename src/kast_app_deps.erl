@@ -61,10 +61,11 @@ create_dot_markup(App, AppDeps) ->
     RemoteApps = lists:usort([A || {_Module, A} <- AppDeps, is_kazoo_app(A)]),
     app_markup(App, RemoteApps).
 
+-define(QUOTE, 34).
 app_markup(App, RemoteApps) ->
-    M = [$", kz_term:to_binary(App), $"
+    M = [?QUOTE, kz_term:to_binary(App), ?QUOTE
         ," -> {"
-        ,$", kz_binary:join(RemoteApps, <<"\" \"">>), $"
+        ,?QUOTE, kz_binary:join(RemoteApps, <<"\" \"">>), ?QUOTE
         ,"} [weight=1];\n"
         ],
 
