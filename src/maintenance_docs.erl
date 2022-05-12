@@ -1,5 +1,5 @@
 %%%-----------------------------------------------------------------------------
-%%% @copyright (C) 2015-2021, 2600Hz
+%%% @copyright (C) 2015-2022, 2600Hz
 %%% @doc Ensure a "doc/maintenance.md" exists in each application
 %%% This Source Code Form is subject to the terms of the Mozilla Public
 %%% License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -15,6 +15,7 @@
 
 -include_lib("ast/include/kz_ast.hrl").
 -include_lib("ast/src/kz_ast.hrl").
+-include_lib("kazoo_stdlib/include/kz_log.hrl").
 
 -type acc() :: {module() | 'undefined', #{}}.
 
@@ -28,7 +29,7 @@
 -spec process() -> map().
 process() ->
     {_, Acc} = kazoo_ast:walk_project(?CONFIG),
-    io:format(" done.~n"),
+    ?LOG_DEBUG(" done.~n"),
     Acc.
 
 -spec process(module()) -> acc().
@@ -37,9 +38,9 @@ process(Module) ->
 
 -spec to_docs() -> 'ok'.
 to_docs() ->
-    io:format("processing maintenance modules: "),
+    ?LOG_DEBUG("processing maintenance modules: "),
     to_docs(maps:to_list(process())),
-    io:format("~n").
+    ?LOG_DEBUG("~n").
 
 -spec to_doc(module()) -> 'ok'.
 to_doc(Module) ->
@@ -106,8 +107,8 @@ module_to_doc_name(App, Module) ->
 -spec print_dot(module(), acc()) -> acc().
 print_dot(M, Acc) ->
     case is_maintenance_module(M) of
-        'false' -> io:format(".");
-        'true' -> io:format("s")
+        'false' -> ?LOG_DEBUG(".");
+        'true' -> ?LOG_DEBUG("s")
     end,
     Acc.
 

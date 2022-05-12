@@ -1,5 +1,5 @@
 %%%-----------------------------------------------------------------------------
-%%% @copyright (C) 2015-2021, 2600Hz
+%%% @copyright (C) 2015-2022, 2600Hz
 %%% @doc Module for parsing ECallMgr modules, looking for Props from FreeSWITCH.
 %%% @author James Aimonetti
 %%% This Source Code Form is subject to the terms of the Mozilla Public
@@ -17,17 +17,18 @@
 
 -include_lib("ast/include/kz_ast.hrl").
 -include_lib("kazoo_stdlib/include/kazoo_json.hrl").
+-include_lib("kazoo_stdlib/include/kz_log.hrl").
 
 -define(DEBUG(_Fmt, _Args), 'ok').
-%%-define(DEBUG(Fmt, Args), io:format([$~, $p, $  | Fmt], [?LINE | Args])).
+%%-define(DEBUG(Fmt, Args), ?LOG_DEBUG([$~, $p, $  | Fmt], [?LINE | Args])).
 
--spec to_header_file() -> ok.
+-spec to_header_file() -> 'ok'.
 to_header_file() ->
     Usage = process(),
     write_usage_to_header(Usage).
 
 write_usage_to_header([]) ->
-    io:format("failed to process ecallmgr for usage~n");
+    ?LOG_DEBUG("failed to process ecallmgr for usage~n");
 write_usage_to_header(Usage) ->
     {'ok', IO} = file:open(event_filter_filename()
                           ,['write'
@@ -40,7 +41,7 @@ write_usage_to_header(Usage, IO) ->
     write_headers(IO, lists:usort(lists:filter(fun ignored_headers/1, sets:to_list(EventFilters)))).
 
 write_headers(IO, []) ->
-    io:format("no headers detected~n", []),
+    ?LOG_DEBUG("no headers detected~n", []),
     'ok' = file:close(IO);
 write_headers(IO, [First|Sorted]) ->
     'ok' = file:write(IO, "-ifndef(FS_GENERATED_EVENT_FILTERS_HRL).\n\n"),
@@ -108,19 +109,19 @@ event_filter_filename() ->
 
 -spec process() -> [{module(), list()}].
 process() ->
-    io:format("processing ecallmgr FreeSWITCH Props usage: "),
+    ?LOG_DEBUG("processing ecallmgr FreeSWITCH Props usage: "),
     Usages = [{Module, Usages} ||
                  Module <- kz_ast_util:app_modules('ecallmgr'),
                  Usages <- [process(Module)],
                  Usages =/= 'undefined'
              ],
-    io:format(" done~n"),
+    ?LOG_DEBUG(" done~n"),
     Usages.
 
 -spec process(module()) -> list().
 process(Module) when is_atom(Module) ->
     U = process_action(Module),
-    io:format("."),
+    ?LOG_DEBUG("."),
     ?DEBUG("  usage for ~p: ~p~n", [Module, U]),
     U.
 

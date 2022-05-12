@@ -16,17 +16,18 @@
 
 -include_lib("kazoo_stdlib/include/kz_types.hrl").
 -include_lib("kazoo_stdlib/include/kazoo_json.hrl").
+-include_lib("kazoo_stdlib/include/kz_log.hrl").
 
 -spec build_accessors() -> 'ok'.
 build_accessors() ->
-    io:format("building accessors: "),
+    ?LOG_DEBUG("building accessors: "),
     'ok' = filelib:fold_files(kz_term:to_list(kz_ast_util:schema_path(<<>>))
                              ,"^[a-z_]+\\.json$"
                              ,'false'
                              ,fun build_accessor/2
                              ,'ok'
                              ),
-    io:format(" done~n").
+    ?LOG_DEBUG(" done~n").
 
 -spec build_accessor(file:filename()) -> 'ok'.
 build_accessor(SchemaPath) ->
@@ -34,7 +35,7 @@ build_accessor(SchemaPath) ->
 
 -spec build_accessor(file:filename(), 'ok') -> 'ok'.
 build_accessor(SchemaPath, 'ok') ->
-    io:format("."),
+    ?LOG_DEBUG("."),
     {'ok', SchemaJObj} = kz_json_schema:fload(SchemaPath),
     SchemaId = kz_doc:id(SchemaJObj),
 
@@ -255,7 +256,7 @@ json_getter_fun(Schema, 'undefined') ->
     case kz_json:get_value(<<"$ref">>, Schema) of
         'undefined' ->
             case kz_json:get_list_value(<<"oneOf">>, Schema) of
-                undefined ->
+                'undefined' ->
                     {"get_value", "any()"};
                 OneOf ->
                     Types = [oneof(Type) || Type <- OneOf],

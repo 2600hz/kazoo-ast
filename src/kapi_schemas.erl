@@ -1,5 +1,5 @@
 %%%-----------------------------------------------------------------------------
-%%% @copyright (C) 2015-2021, 2600Hz
+%%% @copyright (C) 2015-2022, 2600Hz
 %%% @doc Generate schema for Kazoo AMQP APIs.
 %%% @author James Aimonetti
 %%% This Source Code Form is subject to the terms of the Mozilla Public
@@ -22,7 +22,7 @@
 -include_lib("kazoo_amqp/include/kapi_definition.hrl").
 
 -define(DEBUG(_Fmt, _Args), 'ok').
-%%-define(DEBUG(Fmt, Args), io:format('user', [$~, $p, $  | Fmt], [?LINE | Args])).
+%%-define(DEBUG(Fmt, Args), ?LOG_DEBUG('user', [$~, $p, $  | Fmt], [?LINE | Args])).
 
 -record(acc, {kapi_name = <<"empty">> :: kz_term:ne_binary() %% s/kapi_(.+)/\1/
              ,api_name = <<"empty">> :: kz_term:api_ne_binary() %% api function
@@ -90,13 +90,13 @@ existing_schema(Name) ->
         {'error', 'not_found'} ->
             kz_json:new();
         {'error', _E} ->
-            io:format("failed to find ~s: ~p~n", [Name, _E]),
+            ?LOG_DEBUG("failed to find ~s: ~p~n", [Name, _E]),
             kz_json:new()
     end.
 
 -spec process() -> kz_json:object().
 process() ->
-    io:format("processing kapi modules: "),
+    ?LOG_DEBUG("processing kapi modules: "),
     Options = [{'expression', fun expression_to_schema/2}
               ,{'function', fun set_function/3}
               ,{'module', fun print_dot/2}
@@ -106,12 +106,12 @@ process() ->
               ,{'after_application', fun add_schemas_to_bucket/2}
               ],
     #acc{project_schemas=Schemas} = kazoo_ast:walk_project(Options),
-    io:format(" done~n", []),
+    ?LOG_DEBUG(" done~n", []),
     Schemas.
 
 -spec process_app(atom()) -> kz_json:object().
 process_app(App) ->
-    io:format("processing kapi modules: "),
+    ?LOG_DEBUG("processing kapi modules: "),
     Options = [{'expression', fun expression_to_schema/2}
               ,{'function', fun set_function/3}
               ,{'module', fun print_dot/2}
@@ -121,12 +121,12 @@ process_app(App) ->
               ,{'after_application', fun add_schemas_to_bucket/2}
               ],
     #acc{project_schemas=Schemas} = kazoo_ast:walk_app(App, Options),
-    io:format(" done~n", []),
+    ?LOG_DEBUG(" done~n", []),
     Schemas.
 
 -spec process_module(module()) -> kz_json:object().
 process_module(KapiModule) ->
-    io:format('user', "processing kapi module ~s: ", [KapiModule]),
+    ?LOG_DEBUG("processing kapi module ~s: ", [KapiModule]),
     Options = [{'expression', fun expression_to_schema/2}
               ,{'function', fun set_function/3}
               ,{'module', fun print_dot/2}
@@ -138,7 +138,7 @@ process_module(KapiModule) ->
     Acc = kazoo_ast:walk_modules([KapiModule], Options),
     #acc{project_schemas=Schemas} = add_schemas_to_bucket(KapiModule, Acc),
 
-    io:format('user', " done~n", []),
+    ?LOG_DEBUG(" done~n"),
     Schemas.
 
 -spec print_dot(kz_term:ne_binary() | module(), acc()) ->
@@ -151,7 +151,7 @@ print_dot(<<"kapi_schemas">>, #acc{}=Acc) ->
 print_dot(<<"kapi_definition">>, #acc{}=Acc) ->
     {'skip', Acc};
 print_dot(<<"kapi_", Module/binary>>, #acc{}=Acc) ->
-    io:format("."),
+    ?LOG_DEBUG("."),
     ?DEBUG("processing kapi_~s~n", [Module]),
     Acc#acc{kapi_name=Module};
 print_dot(<<_/binary>>, #acc{}=Acc) ->
@@ -372,7 +372,7 @@ merge_schemas(Key, Value, CmdSchema) ->
 
 maybe_merge_value(Key, Value, CmdSchema, CmdValue, 'true') ->
     Merged = kz_json:merge_recursive(Value, CmdValue),
-    io:format("merged ~s: ~p~n", [Key, Merged]),
+    ?LOG_DEBUG("merged ~s: ~p~n", [Key, Merged]),
     kz_json:set_value(Key, Merged, CmdSchema);
 maybe_merge_value(Key, Value, CmdSchema, 'undefined', 'false') ->
     kz_json:set_value(Key, Value, CmdSchema);

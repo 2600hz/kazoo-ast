@@ -1,5 +1,5 @@
 %%%-----------------------------------------------------------------------------
-%%% @copyright (C) 2015-2021, 2600Hz
+%%% @copyright (C) 2015-2022, 2600Hz
 %%% @doc Checks files to find raw usage of JSON.
 %%% @author James Aimonetti
 %%% This Source Code Form is subject to the terms of the Mozilla Public
@@ -16,6 +16,7 @@
         ]).
 
 -include_lib("ast/include/kz_ast.hrl").
+-include_lib("kazoo_stdlib/include/kz_log.hrl").
 
 -define(ACC(CurrentModuleLines, ModulesAndLines), {CurrentModuleLines, ModulesAndLines}).
 
@@ -26,9 +27,9 @@ process_project() ->
               ,{'after_module', fun print_dot/2}
               ,{'expression', fun raw_json_in_expression/2}
               ],
-    io:format("processing raw_json: "),
+    ?LOG_DEBUG("processing raw_json: "),
     ?ACC(_, Raw) = kazoo_ast:walk_project(Options),
-    io:format(" done~n"),
+    ?LOG_DEBUG(" done~n"),
     lists:keysort(1, Raw).
 
 -spec process_app(atom()) -> [{module(), list()}].
@@ -57,10 +58,10 @@ maybe_skip_kz_json(_Module, Acc) ->
     Acc.
 
 print_dot(_Module, ?ACC([], _)=Acc) ->
-    io:format("."),
+    ?LOG_DEBUG("."),
     Acc;
 print_dot(Module, ?ACC(Lines, ModulesAndLines)) ->
-    io:format("?"),
+    ?LOG_DEBUG("?"),
     ?ACC([], [{Module, lists:usort(Lines)} | ModulesAndLines]).
 
 raw_json_in_expression(?TUPLE([?EMPTY_LIST])=Tuple, Acc) ->

@@ -1,5 +1,5 @@
 %%%-----------------------------------------------------------------------------
-%%% @copyright (C) 2015-2021, 2600Hz
+%%% @copyright (C) 2015-2022, 2600Hz
 %%% @doc Modules to count usage of some specific case like `M:F/A' calls.
 %%% @author James Aimonetti
 %%% This Source Code Form is subject to the terms of the Mozilla Public
@@ -15,6 +15,7 @@
         ]).
 
 -include_lib("ast/include/kz_ast.hrl").
+-include_lib("kazoo_stdlib/include/kz_log.hrl").
 
 -define(DEFAULT_TOP, 25).
 
@@ -35,14 +36,14 @@ tabulate(App, Top) when is_atom(App)
                         andalso Top > 0 ->
     print_usage(process(App), Top).
 
--define(PRINT(Args), io:format("~6.6s | ~s~n", Args)).
+-define(PRINT(Args), ?LOG_DEBUG("~6.6s | ~s~n", Args)).
 
 print_usage(Dict, Top) ->
     Sorted = sort_and_truncate_dict(Dict, Top),
     ?PRINT(["Count", "M:F/A"]),
-    [?PRINT([integer_to_list(Count), MFA])
-     || {MFA, Count} <- Sorted
-    ],
+    _ = [?PRINT([integer_to_list(Count), MFA])
+         || {MFA, Count} <- Sorted
+        ],
     'ok'.
 
 sort_and_truncate_dict(Dict, Top) ->
@@ -57,20 +58,20 @@ sort_and_truncate_dict(Dict, Top) ->
 
 -spec process() -> dict:dict().
 process() ->
-    io:format("process mfa counts: "),
+    ?LOG_DEBUG("process mfa counts: "),
     Usage = kazoo_ast:walk_project(?OPTIONS),
-    io:format(" done~n", []),
+    ?LOG_DEBUG(" done~n", []),
     Usage.
 
 -spec process(atom()) -> dict:dict().
 process(App) ->
-    io:format("process mfa counts in ~s: ", [App]),
+    ?LOG_DEBUG("process mfa counts in ~s: ", [App]),
     Usage = kazoo_ast:walk_app(App, ?OPTIONS),
-    io:format(" done~n", []),
+    ?LOG_DEBUG(" done~n", []),
     Usage.
 
 print_dot(_M, Acc) ->
-    io:format(".", []),
+    ?LOG_DEBUG(".", []),
     Acc.
 
 count_mfa(?MOD_FUN_ARGS(M, F, Args), Acc) ->

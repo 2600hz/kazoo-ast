@@ -1,5 +1,5 @@
 %%%-----------------------------------------------------------------------------
-%%% @copyright (C) 2010-2021, 2600Hz
+%%% @copyright (C) 2010-2022, 2600Hz
 %%% @doc One-off for building pqc_cb_* modules that have CRUD-y APIs
 %%%
 %%% This Source Code Form is subject to the terms of the Mozilla Public
@@ -17,6 +17,7 @@
 -include_lib("ast/include/kz_ast.hrl").
 -include_lib("ast/src/kz_ast.hrl").
 -include_lib("kazoo_web/include/kazoo_web.hrl").
+-include_lib("kazoo_stdlib/include/kz_log.hrl").
 
 -define(DOLLAR_SIGN, 36). % formatter (at least in CI) still barfs on $ in regex
 
@@ -62,7 +63,7 @@ write_source(#src_module{module=Module
                         }=SrcModule) ->
     PQCFile = module_to_pqc_filename(Module),
     'ok' = file:write_file(PQCFile, src_module_to_iolist(SrcModule)),
-    io:format("wrote ~s~n", [PQCFile]);
+    ?LOG_DEBUG("wrote ~s~n", [PQCFile]);
 write_source(#src_module{module=_M}) -> 'ok'.
 
 src_module_to_iolist(#src_module{module=Module
@@ -308,21 +309,21 @@ add_export(_Arity, _Verb, Exports) ->
 
 -spec process() -> dict:dict().
 process() ->
-    io:format("processing pqc CRUD "),
+    ?LOG_DEBUG("processing pqc CRUD "),
     {_MFA, Dict} = kazoo_ast:walk_project(?CONFIG),
-    io:format(" done~n"),
+    ?LOG_DEBUG(" done~n"),
     Dict.
 
 -spec process_app(atom()) -> dict:dict().
 process_app(App) ->
     {_MFA, Dict} = kazoo_ast:walk_app(App, ?CONFIG),
-    io:format(" done~n"),
+    ?LOG_DEBUG(" done~n"),
     Dict.
 
 -spec process_module(module()) -> dict:dict().
 process_module(Module) ->
     {_MFA, Dict} = kazoo_ast:walk_modules([Module], ?CONFIG),
-    io:format(" done~n"),
+    ?LOG_DEBUG(" done~n"),
     Dict.
 
 %% @doc these excluded modules are not CRUD-y or deprecated
@@ -361,7 +362,7 @@ start_module(Module, {_MFA, Dict}) ->
 
 -spec print_dot(module(), acc()) -> acc().
 print_dot(_M, Acc) ->
-    io:format("."),
+    ?LOG_DEBUG("."),
     Acc.
 
 %% only process clauses from these two functions

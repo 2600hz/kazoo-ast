@@ -1,5 +1,5 @@
 %%%-----------------------------------------------------------------------------
-%%% @copyright (C) 2015-2021, 2600Hz
+%%% @copyright (C) 2015-2022, 2600Hz
 %%% @doc Generic module to walk project, applications and module to read
 %%% create module's AST and do job various jobs on them.
 %%% @author James Aimonetti
@@ -116,7 +116,7 @@ process_walking_module(Module, ConfigMap, {'ok', Application}) ->
 process_walking_module(Module, ConfigMap, 'undefined') ->
     case find_app_from_path(code:which(Module)) of
         'undefined' ->
-            io:format("failed to find application for ~p~n", [Module]),
+            ?LOG_DEBUG("failed to find application for ~p~n", [Module]),
             process_module(Module, ConfigMap);
         Application ->
             process_module(Module, callback_application(Application, ConfigMap))
@@ -176,8 +176,8 @@ maybe_fold_over_module(Module, Routines, Config0) ->
                    )
     catch
         ?STACKTRACE(_E, R, ST)
-        io:format("error processing ~s: '~s': ~p~n", [Module, _E, R]),
-        [io:format("~p~n", [S]) || S <- ST],
+        ?LOG_DEBUG("error processing ~s: '~s': ~p~n", [Module, _E, R]),
+        _ = [?LOG_DEBUG("~p~n", [S]) || S <- ST],
         throw({'error', Module, R})
         end.
 
@@ -247,10 +247,10 @@ callback_record(_RecordName, Config) -> {'skip', Config}.
 process_record_field(?RECORD_FIELD(_Key), Config) ->
     Config;
 process_record_field(?RECORD_FIELD_BIND(_Key, Value), Config) ->
-    io:format("record field bind: ~p: ~p~n", [_Key, Value]),
+    ?LOG_DEBUG("record field bind: ~p: ~p~n", [_Key, Value]),
     process_expression(Value, Config);
 process_record_field(?TYPED_RECORD_FIELD(RecordField, _Type), Config) ->
-    io:format("typed record field: ~p: ~p~n", [RecordField, _Type]),
+    ?LOG_DEBUG("typed record field: ~p: ~p~n", [RecordField, _Type]),
     process_record_field(RecordField, Config).
 
 process_functions(Functions, Config0) ->

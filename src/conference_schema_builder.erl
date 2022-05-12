@@ -1,5 +1,5 @@
 %%%-----------------------------------------------------------------------------
-%%% @copyright (C) 2015-2021, 2600Hz
+%%% @copyright (C) 2015-2022, 2600Hz
 %%% @doc Generate schema for conferences.
 %%% @author James Aimonetti
 %%% This Source Code Form is subject to the terms of the Mozilla Public
@@ -16,9 +16,10 @@
 
 -include_lib("ast/include/kz_ast.hrl").
 -include_lib("kazoo_stdlib/include/kazoo_json.hrl").
+-include_lib("kazoo_stdlib/include/kz_log.hrl").
 
 -define(DEBUG(_Fmt, _Args), 'ok').
-%%-define(DEBUG(Fmt, Args), io:format([$~, $p, $  | Fmt] ++ "~n", [?LINE | Args])).
+%%-define(DEBUG(Fmt, Args), ?LOG_DEBUG([$~, $p, $  | Fmt] ++ "~n", [?LINE | Args])).
 
 -record(usage, {usages = [] %% places the Data is accessed
                ,data_var_name = 'JObj' %% Tracks current var name
@@ -158,14 +159,14 @@ guess_type(_F, _D) ->
 
 -spec process() -> list().
 process() ->
-    io:format("processing conference schema: "),
+    ?LOG_DEBUG("processing conference schema: "),
     Usages = process('kapps_conference'),
-    io:format(" done~n"),
+    ?LOG_DEBUG(" done~n"),
     Usages.
 
 -spec process(module()) -> list().
 process(Module) when is_atom(Module) ->
-    io:format("."),
+    ?LOG_DEBUG("."),
     U = process_action(Module),
     ?DEBUG("  usage for ~p: ~p", [Module, U]),
     U.
@@ -323,7 +324,7 @@ process_mfa(#usage{data_var_name=DataName
     ?DEBUG("adding set_value usage ~p, ~p, ~p", [Key, Value, DataName]),
     Acc#usage{usages=maybe_add_usage(Usages, {M, F, arg_to_key(Key), DataName, arg_to_key(Value)})};
 process_mfa(#usage{}=Acc
-           ,'kz_json', _F, [{call, _, _, _}=_Key|_]
+           ,'kz_json', _F, [{'call', _, _, _}=_Key|_]
            ) ->
     Acc;
 process_mfa(#usage{data_var_name=DataName

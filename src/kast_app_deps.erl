@@ -1,5 +1,5 @@
 %%%-----------------------------------------------------------------------------
-%%% @copyright (C) 2015-2021, 2600Hz
+%%% @copyright (C) 2015-2022, 2600Hz
 %%% @doc Module for studying Kazoo applications dependency.
 %%% @author James Aimonetti
 %%% This Source Code Form is subject to the terms of the Mozilla Public
@@ -31,9 +31,6 @@
 -include_lib("kazoo_stdlib/include/kz_types.hrl").
 -include_lib("kazoo_stdlib/include/kz_log.hrl").
 
--define(DEBUG(_Fmt, _Args), 'ok').
-%%-define(DEBUG(Fmt, Args), io:format([$~, $p, $  | Fmt], [?LINE | Args])).
-
 -spec dot_file() -> 'ok' |
           {'error', file:posix() | 'badarg' | 'terminated' | 'system_limit'}.
 dot_file() ->
@@ -55,7 +52,7 @@ create_dot_file(Name, Markup) ->
                            ,"}\n"
                            ]
                           ),
-    io:format("wrote DOT file to ~s~n", [Filename]).
+    ?LOG_DEBUG("wrote DOT file to ~s~n", [Filename]).
 
 create_dot_markup(App, AppDeps) ->
     RemoteApps = lists:usort([A || {_Module, A} <- AppDeps, is_kazoo_app(A)]),
@@ -69,17 +66,17 @@ app_markup(App, RemoteApps) ->
         ,"} [weight=1];\n"
         ],
 
-    ?DEBUG("adding '~s'~n", [M]),
+    ?LOG_DEBUG("adding '~s'~n", [M]),
     M.
 
 -spec fix_project_deps() -> 'ok'.
 fix_project_deps() ->
     Deps = process_project(),
-    io:format("processing app files "),
+    ?LOG_DEBUG("processing app files "),
     _ = [fix_app_deps(App, Missing, Unneeded)
          || {App, Missing, Unneeded} <- Deps
         ],
-    io:format(" done.~n").
+    ?LOG_DEBUG(" done.~n").
 
 -spec fix_app_deps(atom()) -> 'ok'.
 fix_app_deps(App) ->
@@ -93,7 +90,7 @@ configured_dep_apps(App) ->
     configured_dep_apps(App, read_app_src(App)).
 
 configured_dep_apps(_App, 'undefined') ->
-    ?DEBUG("failed to find configured dep apps, no .app for ~s", [_App]),
+    ?LOG_DEBUG("failed to find configured dep apps, no .app for ~s", [_App]),
     [];
 configured_dep_apps(App, {'application', App, Properties}) ->
     lists:usort(props:get_value('applications', Properties)).
@@ -101,21 +98,21 @@ configured_dep_apps(App, {'application', App, Properties}) ->
 fix_app_deps(App, Missing, Unneeded) ->
     ConfiguredApps = configured_dep_apps(App),
 
-    ?DEBUG("app ~p~n conf: ~p~n missing ~p~n unneeded ~p~n"
-          ,[App, ConfiguredApps, Missing, Unneeded]
-          ),
+    ?LOG_DEBUG("app ~p~n conf: ~p~n missing ~p~n unneeded ~p~n"
+              ,[App, ConfiguredApps, Missing, Unneeded]
+              ),
     Union = ordsets:union(ConfiguredApps, Missing),
-    ?DEBUG("union: ~p~n", [Union]),
+    ?LOG_DEBUG("union: ~p~n", [Union]),
 
     Subtracted = ordsets:subtract(Union, Unneeded),
-    ?DEBUG("sub: ~p~n", [Subtracted]),
+    ?LOG_DEBUG("sub: ~p~n", [Subtracted]),
 
     case Subtracted of
         ConfiguredApps ->
-            ?DEBUG("no change needed~n", []),
-            io:format(".");
+            ?LOG_DEBUG("no change needed~n", []),
+            ?LOG_DEBUG(".");
         UpdatedApps ->
-            ?DEBUG("updated ~s apps to ~p~n", [App, UpdatedApps]),
+            ?LOG_DEBUG("updated ~s apps to ~p~n", [App, UpdatedApps]),
             update_app_src(App, UpdatedApps)
     end.
 
@@ -123,8 +120,8 @@ update_app_src(App, UpdatedApps) ->
     update_app_src(App, UpdatedApps, read_app_src(App)).
 
 update_app_src(_App, _UpdatedApps, 'undefined') ->
-    ?DEBUG("error reading .app file ~s", [_App]),
-    io:format("!");
+    ?LOG_DEBUG("error reading .app file ~s", [_App]),
+    ?LOG_DEBUG("!");
 update_app_src(App, UpdatedApps, {'application', App, Properties}) ->
     write_app_src(App
                  ,{'application'
@@ -132,11 +129,11 @@ update_app_src(App, UpdatedApps, {'application', App, Properties}) ->
                   ,props:set_value('applications', UpdatedApps, Properties)
                   }
                  ),
-    io:format("x").
+    ?LOG_DEBUG("x").
 
 read_app_src(App) ->
     File = app_src_filename(App),
-    ?DEBUG("reading app file ~s~n", [File]),
+    ?LOG_DEBUG("reading app file ~s~n", [File]),
     read_app_file(File).
 
 read_app_file(File) ->
@@ -144,7 +141,7 @@ read_app_file(File) ->
 
 read_app_file(_File, {'ok', [Config]}) -> Config;
 read_app_file(_File, _Error) ->
-    ?DEBUG("error reading ~s: ~p", [_File, _Error]),
+    ?LOG_DEBUG("error reading ~s: ~p", [_File, _Error]),
     'undefined'.
 
 write_app_src(App, Config) ->
@@ -159,13 +156,13 @@ app_src_filename(App) ->
 
 -spec circles() -> 'ok'.
 circles() ->
-    io:format("finding circular dependencies "),
+    ?LOG_DEBUG("finding circular dependencies "),
 
     {Graph, Verticies} = lists:foldl(fun add_app_to_graph/2
                                     ,{digraph:new(), []}
                                     ,kz_ast_util:project_apps()
                                     ),
-    io:format(" done~n"),
+    ?LOG_DEBUG(" done~n"),
     lists:foreach(fun(App) -> print_cycle(App, Graph) end
                  ,lists:usort(Verticies)
                  ).
@@ -174,7 +171,7 @@ print_cycle(App, Graph) ->
     case digraph:get_short_cycle(Graph, App) of
         'false' -> 'ok';
         Vs ->
-            io:format("cycle through ~p: ~p~n", [App, Vs])
+            ?LOG_DEBUG("cycle through ~p: ~p~n", [App, Vs])
     end.
 
 add_app_to_graph(App, {Graph, Verticies}) ->
@@ -193,7 +190,7 @@ add_app_to_graph(App, {Graph, Verticies}) ->
 %% Circles = [circles(App)
 %%            || App <- kz_ast_util:project_apps()
 %%           ],
-%% io:format(" done~n"),
+%% ?LOG_DEBUG(" done~n"),
 %% Circles.
 
 -spec start_cache() -> {'ok', pid()}.
@@ -212,10 +209,10 @@ stop_cache(Cache) ->
 -spec circles(atom()) -> {atom(), [atom()]}.
 circles(App) ->
     RemoteApps = remote_app_list(App),
-    ?DEBUG("app ~p has remote apps ~p~n", [App, RemoteApps]),
+    ?LOG_DEBUG("app ~p has remote apps ~p~n", [App, RemoteApps]),
     CircularDeps = circular_deps(App, RemoteApps),
     [] =/= CircularDeps
-        andalso ?DEBUG("app ~p has circular deps ~p~n", [App, CircularDeps]),
+        andalso ?LOG_DEBUG("app ~p has circular deps ~p~n", [App, CircularDeps]),
     {App, lists:usort(CircularDeps)}.
 
 -spec remote_app_list(atom()) -> [atom()].
@@ -238,7 +235,7 @@ check_cache_first(App) ->
         {'ok', Remote} -> Remote;
         {'error', 'not_found'} ->
             Remote = uncached(App),
-            ?DEBUG("caching deps for ~p~n", [App]),
+            ?LOG_DEBUG("caching deps for ~p~n", [App]),
             kz_cache:store_local(?MODULE, App, Remote),
             Remote
     end.
@@ -252,15 +249,15 @@ circular_deps(App, RemoteApps) ->
 
 circles_fold(App, Dep, Acc) ->
     is_kazoo_app(Dep)
-        andalso ?DEBUG("dep ~p (of ~p) has remote apps ~p~n"
-                      ,[Dep, App, remote_app_list(Dep)]
-                      ),
+        andalso ?LOG_DEBUG("dep ~p (of ~p) has remote apps ~p~n"
+                          ,[Dep, App, remote_app_list(Dep)]
+                          ),
     case is_kazoo_app(Dep)
         andalso [A || A <- remote_app_list(Dep), A =:= App]
     of
-        'false' -> ?DEBUG("dep ~p (of ~p) is not a kazoo app (may be a lib)~n", [Dep, App]), Acc;
+        'false' -> ?LOG_DEBUG("dep ~p (of ~p) is not a kazoo app (may be a lib)~n", [Dep, App]), Acc;
         [] -> Acc;
-        _ -> ?DEBUG("adding dep ~s to list", [Dep]), [Dep|Acc]
+        _ -> ?LOG_DEBUG("adding dep ~s to list", [Dep]), [Dep|Acc]
     end.
 
 -spec is_kazoo_app(atom() | file:filename() | {'error', 'bad_name'}) -> boolean().
@@ -275,12 +272,12 @@ is_kazoo_app(Path) when is_list(Path) ->
 -spec process_project() -> apps_deps().
 process_project() ->
     {'ok', Cache} = kz_cache_sup:start_link(?MODULE),
-    io:format("processing application dependencies: "),
+    ?LOG_DEBUG("processing application dependencies: "),
     Discrepencies = lists:foldl(fun process_app/2
                                ,[]
                                ,kz_ast_util:project_apps()
                                ),
-    io:format(" done~n"),
+    ?LOG_DEBUG(" done~n"),
     kz_cache:stop_local(Cache),
     lists:keysort(1, Discrepencies).
 
@@ -295,7 +292,7 @@ process_app(App, Acc) ->
             'ok' = application:load(App),
             process_app(App, Acc);
         {'ok', ExistingApps} ->
-            ?DEBUG("app ~p~n existing: ~p~n", [App, ExistingApps]),
+            ?LOG_DEBUG("app ~p~n existing: ~p~n", [App, ExistingApps]),
             process_app(App, Acc, ExistingApps)
     end.
 
@@ -305,9 +302,9 @@ process_app(App, Acc, ExistingApps) ->
     RemoteModules = remote_calls(App),
     RemoteApps = ordsets:from_list(modules_as_apps(App, RemoteModules)),
 
-    ?DEBUG("remote modules: ~p~n", [RemoteModules]),
+    ?LOG_DEBUG("remote modules: ~p~n", [RemoteModules]),
 
-    ?DEBUG(" known ~p~nremote apps: ~p~n", [KnownApps, RemoteApps]),
+    ?LOG_DEBUG(" known ~p~nremote apps: ~p~n", [KnownApps, RemoteApps]),
 
     Missing = ordsets:subtract(RemoteApps, KnownApps),
     Unneeded = ordsets:subtract(KnownApps, RemoteApps),
@@ -320,7 +317,7 @@ process_app(App, Acc, ExistingApps) ->
 -spec remote_calls(atom()) -> [atom()].
 remote_calls(App) ->
     AppModules = kz_ast_util:app_modules(App),
-    ?DEBUG("~s has modules: ~p~n", [App, AppModules]),
+    ?LOG_DEBUG("~s has modules: ~p~n", [App, AppModules]),
     lists:usort(
       lists:foldl(fun remote_calls_from_module/2
                  ,[]
@@ -336,20 +333,20 @@ remote_calls_from_module(Module, Acc) ->
     remote_calls_from_module(Module, Acc, kz_ast_util:module_ast(Module)).
 
 remote_calls_from_module(_Module, Acc, 'undefined') ->
-    io:format("!"),
-    ?DEBUG("failed to get AST for ~s", [_Module]),
+    ?LOG_DEBUG("!"),
+    ?LOG_DEBUG("failed to get AST for ~s", [_Module]),
     Acc;
 remote_calls_from_module(Module, Acc, {M, AST}) ->
-    io:format("."),
-    ?DEBUG("remote calls from ~s~n", [Module]),
+    ?LOG_DEBUG("."),
+    ?LOG_DEBUG("remote calls from ~s~n", [Module]),
     #module_ast{functions=Fs} = kz_ast_util:add_module_ast(#module_ast{}, M, AST),
     try remote_calls_from_functions(Fs, Acc) of
-        Modules -> ?DEBUG("  ~p~n", [Module]), lists:delete(M, Modules)
+        Modules -> ?LOG_DEBUG("  ~p~n", [Module]), lists:delete(M, Modules)
     catch
         ?STACKTRACE(_E, R, ST)
-        io:format("process module '~s' failed: ~s: ~p~n", [Module, _E, R]),
-        [io:format("st: ~p~n", [S]) || S <- ST],
-        ?DEBUG("~s failed: ~s ~r~n~p~n", [Module, _E, R, ST]),
+        ?LOG_DEBUG("process module '~s' failed: ~s: ~p~n", [Module, _E, R]),
+        _ = [?LOG_DEBUG("st: ~p~n", [S]) || S <- ST],
+        ?LOG_DEBUG("~s failed: ~s ~r~n~p~n", [Module, _E, R, ST]),
         throw(R)
         end.
 

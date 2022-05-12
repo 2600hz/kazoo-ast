@@ -1,5 +1,5 @@
 %%%-----------------------------------------------------------------------------
-%%% @copyright (C) 2015-2021, 2600Hz
+%%% @copyright (C) 2015-2022, 2600Hz
 %%% @doc Modules to create a reference documents from Crossbar API modules.
 %%% @author James Aimonetti
 %%% This Source Code Form is subject to the terms of the Mozilla Public
@@ -45,12 +45,6 @@
 -include_lib("kazoo_documents/include/kazoo_documents.hrl").
 
 -include_lib("ast/src/kz_ast.hrl").
-
-%%-define(DEBUG(F, A), ?DEV_LOG(F, A)).
-%%-define(DEBUG(F), ?DEV_LOG(F)).
-
--define(DEBUG(F, A), ok).
--define(DEBUG(F), ok).
 
 -define(REF_PATH(App)
        ,code:lib_dir(App), "doc", "ref"
@@ -163,7 +157,7 @@ api_path_to_section(_MOdule, _Paths, Acc) -> Acc.
 %% @end
 %%------------------------------------------------------------------------------
 methods_to_section('undefined', _Path, Acc) ->
-    io:format("skipping path ~p~n", [_Path]),
+    ?LOG_DEBUG("skipping path ~p~n", [_Path]),
     Acc;
 methods_to_section(ModuleName, {Path, Methods}, Acc) ->
     API = kz_term:iolist_join($/, [?CURRENT_VERSION, ModuleName | format_path_tokens(Path)]),
@@ -244,9 +238,9 @@ schema_to_doc(Schema, Doc) ->
     of
         [Before, After] ->
             Data = [Before, kz_ast_util:schema_to_table(SchemaJObj), After],
-            ok = file:write_file(DocFile, Data);
+            'ok' = file:write_file(DocFile, Data);
         _Else ->
-            io:format("file ~s appears to have a schema section already~n", [DocFile])
+            ?LOG_DEBUG("file ~s appears to have a schema section already~n", [DocFile])
     end.
 
 -type ref_table() :: {kz_term:ne_binary(), ref_tables()} | kz_term:ne_binary().
@@ -371,25 +365,25 @@ write_swagger_file(Props, <<"oas_two_and_three">>) ->
     write_swagger_file(Props, <<"swagger2">>),
     write_swagger_file(Props, <<"oas3">>);
 write_swagger_file(Props, <<"swagger2">>) ->
-    io:format(user, "~nsaving swagger 2.0 to file ~s~n", [?SWAGGER_2_JSON_FILE]),
+    ?LOG_DEBUG("~nsaving swagger 2.0 to file ~s~n", [?SWAGGER_2_JSON_FILE]),
     file:write_file(?SWAGGER_2_JSON_FILE, kz_json:encode(props:get_value(<<"swagger2">>, Props)));
 write_swagger_file(Props, <<"oas3">>) ->
     YmlEncodeOption = #{sort_keys => 'true'
                        ,key_string_style => 'single_quote'
                         %% ,string_style => 'double_qoute'
                        },
-    io:format(user, "~nsaving OpenAPI 3 Parameters to file ~s~n", [?OAS3_PARAMETERS_FILE]),
+    ?LOG_DEBUG("~nsaving OpenAPI 3 Parameters to file ~s~n", [?OAS3_PARAMETERS_FILE]),
     Parameters = props:get_value([<<"oas3">>, <<"parameters">>], Props),
     'ok' = file:write_file(?OAS3_PARAMETERS_FILE, kz_yaml:encode(Parameters, YmlEncodeOption)),
 
-    io:format(user, "saving OpenAPI 3 Schemas to file ~s~n", [?OAS3_SCHEMAS_FILE]),
+    ?LOG_DEBUG("saving OpenAPI 3 Schemas to file ~s~n", [?OAS3_SCHEMAS_FILE]),
     Schemas = props:get_value([<<"oas3">>, <<"definitions">>], Props),
     'ok' = file:write_file(?OAS3_SCHEMAS_FILE, kz_yaml:encode(Schemas, YmlEncodeOption)),
 
-    io:format(user, "saving OpenAPI 3 Paths to their files~n", []),
+    ?LOG_DEBUG("saving OpenAPI 3 Paths to their files~n", []),
     'ok' = maps:fold(fun write_oas3_path/3, 'ok', props:get_value([<<"oas3">>, <<"paths">>], Props)),
 
-    io:format(user, "saving OpenAPI 3 to file ~s~n", [?OAS3_YML_FILE]),
+    ?LOG_DEBUG("saving OpenAPI 3 to file ~s~n", [?OAS3_YML_FILE]),
     OpenAPI = props:get_value([<<"oas3">>, <<"openapi">>], Props),
     'ok' = file:write_file(?OAS3_YML_FILE
                           ,kz_yaml:encode(OpenAPI, YmlEncodeOption#{string_style => 'single_quote'})
@@ -411,7 +405,7 @@ create_oas3_path_refs(EndpointName, #{<<"paths">> := PathItems}, Acc) ->
 
 -spec escape_json_pointer(kz_term:ne_binary()) -> kz_term:ne_binary().
 escape_json_pointer(Pointer) ->
-    binary:replace(Pointer, <<"/">>, <<"~1">>, [global]).
+    binary:replace(Pointer, <<"/">>, <<"~1">>, ['global']).
 
 -spec to_swagger_definitions(kz_term:ne_binary()) -> kz_json:object().
 to_swagger_definitions(OasVersion) ->
@@ -704,9 +698,9 @@ format_pc_config({Callback, Paths}, Acc, EndpointName, ModuleName) ->
 
 format_pc_callback({[], []}, Acc, _EndpointName, _ModuleName, _Callback) -> Acc;
 format_pc_callback({_Path, []}, Acc, _EndpointName, _ModuleName, _Callback) ->
-    io:format("module ~s supported path ~s~nm: ~p c: ~p~n"
-             ,[_ModuleName, _Path, _EndpointName, _Callback]
-             ),
+    ?LOG_DEBUG("module ~s supported path ~s~nm: ~p c: ~p~n"
+              ,[_ModuleName, _Path, _EndpointName, _Callback]
+              ),
     Acc;
 format_pc_callback({Path, Vs}, Acc, EndpointName, ModuleName, Callback) ->
     PathName = swagger_api_path(Path, ModuleName),
@@ -740,7 +734,7 @@ format_path_token(Token = <<Prefix:1/binary, _/binary>>)
     end;
 format_path_token(BadToken) ->
     Fmt = "Please pick a good allowed_methods/N variable name: '~s' is too short.\n",
-    io:format('standard_error', Fmt, [BadToken]),
+    ?LOG_ERROR(Fmt, [BadToken]),
     halt(1).
 
 camel_to_snake(Bin) ->
@@ -820,16 +814,16 @@ get_app(App, Acc) ->
 -spec process_application(atom(), callback_configs()) -> callback_configs().
 process_application(App, Acc) ->
     EBinDir = code:lib_dir(App, 'ebin'),
-    io:format("processing ~s modules: ", [App]),
+    ?LOG_DEBUG("processing ~s modules: ", [App]),
     Fun = fun(File, Acc1) -> process_module(App, File, Acc1) end,
     Processed = filelib:fold_files(EBinDir, "^cb_.*.beam\$", 'false', Fun, Acc),
-    io:format(" done~n"),
+    ?LOG_DEBUG(" done~n"),
     Processed.
 
 -spec process_module(atom(), file:filename_all(), callback_configs()) -> callback_configs().
 process_module(App, File, Acc) ->
     {'ok', {Module, [{'exports', Fs}]}} = beam_lib:chunks(File, ['exports']),
-    io:format("."),
+    ?LOG_DEBUG("."),
 
     case process_exports(File, Module, Fs) of
         'undefined' -> Acc;
@@ -860,8 +854,8 @@ process_api_module(File, Module) ->
     try process_api_ast(Module, AST)
     catch
         ?STACKTRACE(_E, _R, ST)
-        io:format("failed to process ~p(~p): ~s: ~p\n", [File, Module, _E, _R]),
-        io:format("~p\n", [ST]),
+        ?LOG_DEBUG("failed to process ~p(~p): ~s: ~p\n", [File, Module, _E, _R]),
+        ?LOG_DEBUG("~p\n", [ST]),
         'undefined'
         end.
 
@@ -1097,8 +1091,8 @@ to_swagger_parameters(Paths, OasVersion) ->
                        is_path_variable(Param)
              ],
     kz_json:from_list(
-      [{<<?X_AUTH_TOKEN>>, parameter_auth_token(true, OasVersion)}
-      ,{<<?X_AUTH_TOKEN_NOT_REQUIRED>>, parameter_auth_token(false, OasVersion)}
+      [{<<?X_AUTH_TOKEN>>, parameter_auth_token('true', OasVersion)}
+      ,{<<?X_AUTH_TOKEN_NOT_REQUIRED>>, parameter_auth_token('false', OasVersion)}
       ]
       ++ [{kz_json:get_ne_binary_value(<<"name">>, ParamProps), ParamProps}
           || Param <- lists:usort(lists:flatten(Params)),
@@ -1146,7 +1140,7 @@ base_path_param(ParamName, OasVersion, SchemaProp) ->
     Name = unbrace_param(ParamName),
     [{<<"name">>, Name}
     ,{<<"in">>, <<"path">>}
-    ,{<<"required">>, true}
+    ,{<<"required">>, 'true'}
     ,{<<"description">>, <<"request ", Name/binary, " parameter">>}
     | parameter_schema(OasVersion, [{<<"type">>, <<"string">>} | SchemaProp])
     ].
@@ -1324,10 +1318,9 @@ def_path_param(OasVersion, Param) ->
         <<"}DI_", _/binary>> ->
             generic_id_path_param(Param, OasVersion);
         _Else ->
-            io:format('standard_error'
-                     ,"~s/" ?FILE ":~p: No Swagger definition of path parameter '~s'\n"
-                     ,[code:lib_dir('ast'), ?LINE, Param]
-                     ),
+            ?LOG_ERROR("~s/" ?FILE ":~p: No Swagger definition of path parameter '~s'\n"
+                      ,[code:lib_dir('ast'), ?LINE, Param]
+                      ),
             halt(1)
     end.
 

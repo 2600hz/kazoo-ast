@@ -1,5 +1,5 @@
 %%%-----------------------------------------------------------------------------
-%%% @copyright (C) 2015-2021, 2600Hz
+%%% @copyright (C) 2015-2022, 2600Hz
 %%% @doc Generate schema for Account and System configurations.
 %%% @author James Aimonetti
 %%% This Source Code Form is subject to the terms of the Mozilla Public
@@ -16,13 +16,13 @@
         ,expression_to_schema/2
         ]).
 
--include_lib("kazoo_stdlib/include/kz_types.hrl").
 -include_lib("ast/include/kz_ast.hrl").
+-include_lib("kazoo_stdlib/include/kz_types.hrl").
 -include_lib("kazoo_stdlib/include/kazoo_json.hrl").
-
+-include_lib("kazoo_stdlib/include/kz_log.hrl").
 
 -define(DEBUG(_Fmt, _Args), 'ok').
-%%-define(DEBUG(Fmt, Args), io:format([$~, $p, $  | Fmt], [?LINE | Args])).
+%%-define(DEBUG(Fmt, Args), ?LOG_DEBUG([$~, $p, $  | Fmt], [?LINE | Args])).
 
 -define(SOURCE, <<"config_usage_source">>).
 -define(FIELD_DEFAULT, <<"default">>).
@@ -133,7 +133,7 @@ static_fields(ConfigType, Name, JObj) ->
 
 -spec process_project() -> kz_json:object().
 process_project() ->
-    io:format("processing kapps_config/kapps_account_config usage: "),
+    ?LOG_DEBUG("processing kapps_config/kapps_account_config usage: "),
     Options = [{'expression', fun expression_to_schema/2}
               ,{'module', fun print_dot/2}
               ,{'accumulator', new_acc()}
@@ -141,7 +141,7 @@ process_project() ->
               ,{'after_application', fun add_schemas_to_bucket/2}
               ],
     #{'project_schemas' := Usage} = kazoo_ast:walk_project(Options),
-    io:format(" done~n"),
+    ?LOG_DEBUG(" done~n"),
     Usage.
 
 -spec process_app(atom()) -> kz_json:object().
@@ -157,7 +157,7 @@ process_app(App) ->
 
 -spec process_modules([atom()]) -> kz_json:object().
 process_modules(Modules) when is_list(Modules) ->
-    io:format("processing kapps_config/kapps_account_config usage: "),
+    ?LOG_DEBUG("processing kapps_config/kapps_account_config usage: "),
     Options = [{'expression', fun expression_to_schema/2}
               ,{'module', fun add_module_app_config/2}
               ,{'accumulator', new_acc()}
@@ -165,13 +165,13 @@ process_modules(Modules) when is_list(Modules) ->
               ,{'after_module', fun add_schemas_to_bucket/2}
               ],
     #{'project_schemas' := Usage} = kazoo_ast:walk_modules(Modules, Options),
-    io:format(" done~n"),
+    ?LOG_DEBUG(" done~n"),
     Usage.
 
 print_dot('pqc_cb_system_configs', Acc) ->
     {'skip', Acc};
 print_dot(_Module, Acc) ->
-    io:format("."),
+    ?LOG_DEBUG("."),
     Acc.
 
 -spec new_acc() -> acc().
@@ -191,7 +191,7 @@ add_module_app_config(Module, Acc) ->
 add_module_app_config(_Module, Acc, {'ok', App}) ->
     add_app_config(App, Acc);
 add_module_app_config(_Module, _Acc, 'undefined') ->
-    io:format("failed to get application of module ~p~n", [_Module]),
+    ?LOG_ERROR("failed to get application of module ~p~n", [_Module]),
     exit(1).
 
 -spec add_app_config(atom(), acc()) -> acc().

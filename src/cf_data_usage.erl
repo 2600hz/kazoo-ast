@@ -1,5 +1,5 @@
 %%%-----------------------------------------------------------------------------
-%%% @copyright (C) 2015-2021, 2600Hz
+%%% @copyright (C) 2015-2022, 2600Hz
 %%% @doc Module for parsing Callflow actions for `Data' usage.
 %%% @author James Aimonetti
 %%% This Source Code Form is subject to the terms of the Mozilla Public
@@ -29,15 +29,15 @@
 
 -spec to_schema_docs() -> 'ok'.
 to_schema_docs() ->
-    io:format("processing callflow data usage: "),
+    ?LOG_DEBUG("processing callflow data usage: "),
     _ = [to_schema_doc(App, M, Usage) || {App, M, Usage} <- process()],
-    io:format(" done~n").
+    ?LOG_DEBUG(" done~n").
 
 -spec to_schema_docs([module()]) -> 'ok'.
 to_schema_docs(Ms) ->
-    io:format("processing callflow data usage: "),
+    ?LOG_DEBUG("processing callflow data usage: "),
     _ = [to_schema_doc(M) || M <- Ms, is_action_module(M)],
-    io:format(" done~n").
+    ?LOG_DEBUG(" done~n").
 
 -spec to_schema_doc(module()) -> 'ok'.
 to_schema_doc(M) ->
@@ -47,7 +47,7 @@ to_schema_doc(M, Usage) ->
     case application:get_application(M) of
         {'ok', App} -> to_schema_doc(App, M, Usage);
         'undefined' ->
-            io:format("failed to find application for module ~p~n", [M])
+            ?LOG_DEBUG("failed to find application for module ~p~n", [M])
     end.
 
 to_schema_doc(App, M, Usage) ->
@@ -143,7 +143,7 @@ insert_type(Type, Schema, [_|_]=Of) ->
         'true' ->
             case kz_json:get_value(<<"type">>, Schema) of
                 'undefined' -> 'ok';
-                _ -> io:format("schema can not define type both in (anyOf | allOf | oneOf) and root:~n~p~n", [Schema])
+                _ -> ?LOG_DEBUG("schema can not define type both in (anyOf | allOf | oneOf) and root:~n~p~n", [Schema])
             end,
             kz_json:delete_key(<<"type">>, Schema);
         'false' ->
@@ -230,13 +230,13 @@ guess_type(_F, _D) ->
              }).
 -spec process() -> [{atom(), module(), list()}].
 process() ->
-    io:format("processing kapi modules: "),
+    ?LOG_DEBUG("processing kapi modules: "),
     Options = [{'module', fun print_dot/2}
               ,{'application', fun set_current_application/2}
               ,{'accumulator', #acc{}}
               ],
     #acc{project_schemas=Schemas} = kazoo_ast:walk_project(Options),
-    io:format(" done~n", []),
+    ?LOG_DEBUG(" done~n", []),
     Schemas.
 
 set_current_application(App, Acc) ->
@@ -251,7 +251,7 @@ print_dot(Module
         'false' ->
             {'skip', Acc};
         'true' ->
-            io:format("."),
+            ?LOG_DEBUG("."),
             Usages = process_action(Module),
             Acc#acc{project_schemas=[{CA, Module, Usages} | PS]}
     end.
@@ -261,7 +261,7 @@ process(Module) when is_atom(Module) ->
     case is_action_module(Module) of
         'false' -> 'undefined';
         'true' ->
-            io:format("."),
+            ?LOG_DEBUG("."),
             U = process_action(Module),
             ?LOG_DEBUG("  usage for ~p: ~p~n", [Module, U]),
             U
@@ -439,7 +439,7 @@ process_mfa(#usage{data_var_name=DataName}=Acc
                         process_mfa(Usage, M, 'set_value', [Key, Value, DN])
                 end
                ,Acc
-               ,KVs
+               ,kz_ast_util:ast_list_to_list(KVs)
                );
 process_mfa(#usage{}=Acc
            ,'kz_json', _F, [{'call', _, _, _}=_Key|_]

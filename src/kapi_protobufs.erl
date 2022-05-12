@@ -1,5 +1,5 @@
 %%%-----------------------------------------------------------------------------
-%%% @copyright (C) 2017-2021, 2600Hz
+%%% @copyright (C) 2017-2022, 2600Hz
 %%% @doc Kazoo API Definition Helpers.
 %%% @author Hesaam Farhang
 %%% This Source Code Form is subject to the terms of the Mozilla Public
@@ -13,14 +13,16 @@
 -export([generate_protobufs/0]).
 -export([process_module/1]).
 
+-include_lib("kazoo_stdlib/include/kz_log.hrl").
+
 -spec generate_protobufs() -> 'ok'.
 generate_protobufs() ->
-    io:format("processing kapi protobufs: "),
+    ?LOG_DEBUG("processing kapi protobufs: "),
     Options = [{'module', fun process_module/2}
               ,{'accumulator', 'ok'}
               ],
     _ = kazoo_ast:walk_project(Options),
-    io:format(" done~n", []).
+    ?LOG_DEBUG(" done~n", []).
 
 %% @doc pass in the kapi_definition to generate the .proto file
 -spec process_module(module()) -> 'ok'.
@@ -38,7 +40,7 @@ maybe_process_schemas(Module, {'ok', App}) ->
     <<"kapi_", KAPI/binary>> = kz_term:to_binary(Module),
 
     SchemaPaths = filename:join([code:priv_dir(App), "couchdb", "schemas", <<"kapi.", KAPI/binary, ".*">>]),
-    io:format("checking ~s for schemas~n", [SchemaPaths]),
+    ?LOG_DEBUG("checking ~s for schemas~n", [SchemaPaths]),
     maybe_process_schemas(Module, App, filelib:wildcard(kz_term:to_list(SchemaPaths)));
 maybe_process_schemas(_Module, _E) -> {'skip', 'ok'}.
 
@@ -54,11 +56,11 @@ maybe_process_schemas(Module, App, SchemaPaths) ->
                  ),
     'ok' = file:close(IODevice),
 
-    io:format("wrote ~s~n", [ProtoFilename]),
-    io:format(".").
+    ?LOG_DEBUG("wrote ~s~n", [ProtoFilename]),
+    ?LOG_DEBUG(".").
 
 process_schema(IODevice, SchemaPath) ->
-    io:format("opening ~s~n", [filename:basename(SchemaPath)]),
+    ?LOG_DEBUG("opening ~s~n", [filename:basename(SchemaPath)]),
     {'ok', SchemaJObj} = kz_json_schema:fload(SchemaPath),
 
     generate_proto(IODevice, SchemaJObj).
@@ -71,7 +73,7 @@ generate_proto(IODevice, SchemaJObj) ->
                   ).
 
 generate_proto(_IODevice, _SchemaJObj, 'undefined', 'undefined') ->
-    io:format("skipping~n");
+    ?LOG_DEBUG("skipping~n");
 generate_proto(IODevice, SchemaJObj, Category, Name) ->
     MessageName = message_name(Category, Name),
     write_message_name(IODevice, MessageName),

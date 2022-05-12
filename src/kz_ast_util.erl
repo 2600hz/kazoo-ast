@@ -1,5 +1,5 @@
 %%%-----------------------------------------------------------------------------
-%%% @copyright (C) 2015-2021, 2600Hz
+%%% @copyright (C) 2015-2022, 2600Hz
 %%% @doc Provide some utilities to work with AST.
 %%% @author James Aimonetti
 %%% This Source Code Form is subject to the terms of the Mozilla Public
@@ -237,7 +237,7 @@ add_if_loadable(App, Acc) ->
         'ok' -> [App | Acc];
         {'error', {'already_loaded', App}} -> [App | Acc];
         {'error', _Reason} ->
-            io:format("  app ~p not loaded: ~p~n", [App, _Reason]),
+            ?LOG_DEBUG("  app ~p not loaded: ~p~n", [App, _Reason]),
             Acc
     end.
 
@@ -282,7 +282,7 @@ schema_to_table(Schema=?NE_BINARY) ->
     case kz_json_schema:fload(Schema) of
         {'ok', JObj} -> schema_to_table(JObj);
         {'error', 'not_found'} ->
-            io:format("failed to find ~s~n", [Schema]),
+            ?LOG_DEBUG("failed to find ~s~n", [Schema]),
             throw({'error', 'no_schema'})
     end;
 schema_to_table(SchemaJObj) ->
@@ -293,8 +293,8 @@ schema_to_table(SchemaJObj) ->
             ]
     catch
         ?STACKTRACE('throw', 'no_type', ST)
-        io:format("failed to build table from schema ~s~n", [kz_doc:id(SchemaJObj)]),
-        io:format("~p~n", [ST]),
+        ?LOG_DEBUG("failed to build table from schema ~s~n", [kz_doc:id(SchemaJObj)]),
+        ?LOG_DEBUG("~p~n", [ST]),
         throw('no_type')
         end.
 
@@ -396,9 +396,9 @@ property_to_row(SchemaJObj, Names, Settings, {Table, Refs}) ->
     SchemaType =
         try schema_type(Settings)
         catch 'throw':'no_type' ->
-                io:format("no schema type in ~s for path ~p: ~p~n"
-                         ,[kz_doc:id(SchemaJObj), Names, Settings]
-                         ),
+                ?LOG_DEBUG("no schema type in ~s for path ~p: ~p~n"
+                          ,[kz_doc:id(SchemaJObj), Names, Settings]
+                          ),
                 cell_wrap('undefined')
         end,
 
@@ -441,12 +441,12 @@ maybe_description_from_one_or_any([]) ->
 maybe_description_from_one_or_any(Schemas) ->
     kz_json:find(<<"description">>, Schemas, <<" ">>).
 
--spec maybe_add_ref(kz_term:ne_binaries(), kz_json:object()) -> kz_term:ne_binaries().
+-spec maybe_add_ref(kz_term:ne_binaries(), kz_term:api_ne_binary() | kz_json:object()) -> kz_term:ne_binaries().
+maybe_add_ref(Refs, 'undefined') -> Refs;
+maybe_add_ref(Refs, <<RefId/binary>>) ->
+    lists:usort([RefId | Refs]);
 maybe_add_ref(Refs, Settings) ->
-    case get_ref(Settings) of
-        'undefined' -> Refs;
-        Ref -> lists:usort([Ref | Refs])
-    end.
+    maybe_add_ref(Refs, get_ref(Settings)).
 
 -spec is_row_required([kz_term:ne_binary() | nonempty_string()], kz_json:object()) -> boolean().
 is_row_required(Names=[_|_], SchemaJObj) ->
@@ -534,7 +534,7 @@ maybe_schema_type_from_oneof(Settings) ->
 maybe_schema_type_from_anyof(Settings) ->
     case kz_json:get_list_value(<<"anyOf">>, Settings) of
         'undefined' ->
-            io:format("no type: ~p~n", [Settings]),
+            ?LOG_DEBUG("no type: ~p~n", [Settings]),
             throw('no_type');
         AnyOf ->
             SchemaTypes = [schema_type(AnyOfJObj, get_type(AnyOfJObj))
@@ -547,17 +547,16 @@ schema_ref_type(Def) ->
     <<"[#/definitions/", Def/binary, "](#", (to_anchor_link(Def))/binary, ")">>.
 
 schema_array_type(Settings) ->
-    case kz_json:get_ne_value([<<"items">>, <<"type">>], Settings) of
-        'undefined' -> schema_array_type_from_ref(Settings);
-        Type ->
+    case {kz_json:get_ne_binary_value([<<"items">>, <<"$ref">>], Settings)
+         ,kz_json:get_ne_value([<<"items">>, <<"type">>], Settings)
+         }
+    of
+        {'undefined', 'undefined'} -> <<"array()">>;
+        {'undefined', Type} ->
             ItemType = schema_type(kz_json:get_json_value(<<"items">>, Settings), Type),
-            <<"array(", ItemType/binary, ")">>
-    end.
-
-schema_array_type_from_ref(Settings) ->
-    case kz_json:get_ne_binary_value([<<"items">>, <<"$ref">>], Settings) of
-        'undefined' -> <<"array()">>;
-        Ref -> ["array(", schema_ref_type(Ref), ")"]
+            <<"array(", ItemType/binary, ")">>;
+        {Ref, _Type} ->
+            <<"array(", (schema_ref_type(Ref))/binary, ")">>
     end.
 
 schema_enum_type(L) ->
@@ -603,9 +602,11 @@ maybe_sub_properties_to_row(SchemaJObj, <<"object">>, Names, Settings, {_,_}=Acc
                         ,maybe_any_of_to_rows(SchemaJObj, Names, Settings, Acc2)
                         );
 maybe_sub_properties_to_row(SchemaJObj, <<"array">>, Names, Settings, {Table, Refs}) ->
-    ?LOG_DEBUG("array item type for ~p: ~p", [Names, kz_json:get_ne_binary_value([<<"items">>, <<"type">>], Settings)]),
-    case kz_json:get_ne_binary_value([<<"items">>, <<"type">>], Settings) of
-        <<"object">> = Type ->
+    ItemType = kz_json:get_ne_binary_value([<<"items">>, <<"type">>], Settings),
+    ItemRef = kz_json:get_ne_binary_value([<<"items">>, <<"$ref">>], Settings),
+    ?LOG_DEBUG("array item type/ref for ~p: ~p/~p", [Names, ItemType, ItemRef]),
+    case {ItemType, ItemRef} of
+        {<<"object">> = Type, 'undefined'} ->
             ?LOG_DEBUG("array(object()): ~p", [Settings]),
             maybe_sub_properties_to_row(SchemaJObj
                                        ,Type
@@ -613,7 +614,24 @@ maybe_sub_properties_to_row(SchemaJObj, <<"array">>, Names, Settings, {Table, Re
                                        ,kz_json:get_json_value(<<"items">>, Settings, kz_json:new())
                                        ,{Table, Refs}
                                        );
-        <<"string">> ->
+        {<<"object">> = _Type, RefId} ->
+            ?LOG_DEBUG("array(~s): ~p", [RefId, Settings]),
+
+            {'ok', RefSchema} = kz_json_schema:fload(RefId),
+            maybe_sub_properties_to_row(SchemaJObj
+                                       ,get_type(RefSchema)
+                                       ,Names ++ ["[]"]
+                                       ,kz_json:get_json_value(<<"items">>, Settings, kz_json:new())
+                                       ,{Table, maybe_add_ref(Refs, RefId)}
+                                       );
+
+        %% maybe_sub_properties_to_row(SchemaJObj
+        %%                            ,Type
+        %%                            ,Names ++ ["[]"]
+        %%                            ,
+        %%                            ,{Table, Refs}
+        %%                            );
+        {<<"string">>, 'undefined'} ->
             ?LOG_DEBUG("getting array item types for ~p", [Names]),
             Items = kz_json:get_json_value(<<"items">>, Settings),
             EnumedType = schema_type(Items, get_type(Items)),
@@ -629,9 +647,10 @@ maybe_sub_properties_to_row(SchemaJObj, <<"array">>, Names, Settings, {Table, Re
              ]
             ,Refs
             };
-        'undefined' ->
+        {'undefined', 'undefined'} ->
             maybe_array_composite_types(Names, Settings, {Table, Refs});
         _Type ->
+            ?LOG_DEBUG("unhandled array type ~p", [_Type]),
             {Table, Refs}
     end;
 maybe_sub_properties_to_row(SchemaJObj, [_|_]=Types, Names, Settings, Acc) ->
