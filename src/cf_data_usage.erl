@@ -678,6 +678,7 @@ process_mfa_call(#usage{functions=Fs
             ?LOG_DEBUG("checking kzc_recording:init/1~n", []),
             process_mfa_call(Acc, 'kzc_recording', 'init', [?VAR('_', 'Call'), ?VAR('_', 'Data')]);
         [Clauses] ->
+            ?LOG_DEBUG("processing ~p clauses for ~p:~p/~p", [length(Clauses), M, F, length(As)]),
             process_mfa_clauses(Acc, M, F, As, Clauses)
     end.
 
@@ -764,7 +765,6 @@ process_mfa_clauses_kz_endpoint_folds(#usage{usages=Usages}=Acc, M, Funs, FunArg
              ,visited=ModuleVisited
              }.
 
-
 list_of_fun_expressions_to_f(ListExpression) ->
     list_of_fun_expressions_to_f(ListExpression, []).
 list_of_fun_expressions_to_f(?EMPTY_LIST, Acc) ->
@@ -839,11 +839,12 @@ process_mfa_clause(#usage{data_var_name=DataName
     end.
 
 mfa_clauses(#usage{functions=Fs}, Module, Function, Arity) ->
-    [Cs || {M, F, A, Cs} <- Fs,
-           Module =:= M,
-           Function =:= F,
-           Arity =:= A
-    ].
+    [[hd(Cs) || {M, F, A, Cs} <- Fs,
+                Module =:= M,
+                Function =:= F,
+                Arity =:= A,
+                begin ?LOG_DEBUG(" adding clause ~p", [Cs]), 'true' end
+     ]].
 
 data_index(DataName, Args) ->
     data_index(DataName, Args, 1).
