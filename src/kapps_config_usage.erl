@@ -190,9 +190,10 @@ add_module_app_config(Module, Acc) ->
 
 add_module_app_config(_Module, Acc, {'ok', App}) ->
     add_app_config(App, Acc);
-add_module_app_config(_Module, _Acc, 'undefined') ->
+add_module_app_config(_Module, Acc, 'undefined') ->
     ?SUP_LOG_ERROR("failed to get application of module ~p~n", [_Module]),
-    exit(1).
+    Acc.
+%%    exit(1).
 
 -spec add_app_config(atom(), acc()) -> acc().
 add_app_config(App, Acc) ->

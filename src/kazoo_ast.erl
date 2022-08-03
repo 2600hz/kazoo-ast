@@ -175,11 +175,11 @@ maybe_fold_over_module(Module, Routines, Config0) ->
                    ,Routines
                    )
     catch
-        ?STACKTRACE(_E, R, ST)
-        ?LOG_DEBUG("error processing ~s: '~s': ~p~n", [Module, _E, R]),
-        _ = [?LOG_DEBUG("~p~n", [S]) || S <- ST],
-        throw({'error', Module, R})
-        end.
+        _E:R:ST ->
+            ?LOG_DEBUG("error processing ~s: '~s': ~p~n", [Module, _E, R]),
+            _ = [?LOG_DEBUG("~p~n", [S]) || S <- ST],
+            throw({'error', Module, R})
+    end.
 
 process_behaviour(Behaviour, Config) ->
     callback_behaviour(Behaviour, Config).
