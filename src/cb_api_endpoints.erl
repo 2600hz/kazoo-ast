@@ -229,7 +229,17 @@ maybe_add_schema(EndpointName) ->
 %% '''
 %% @end
 %%------------------------------------------------------------------------------
--spec schema_to_doc(kz_term:ne_binary(), kz_term:ne_binary()) -> 'ok'.
+-spec schema_to_doc(kz_term:ne_binary(), atom() | kz_term:ne_binary()) -> 'ok'.
+schema_to_doc(Schema, App) when is_atom(App) ->
+    ?LOG_DEBUG("finding doc for schema ~s in app ~s", [Schema, App]),
+    Doc = <<Schema/binary, ".md">>,
+    PathToDoc = filename:join([code:lib_dir(App), "doc", Doc]),
+    case filelib:is_regular(PathToDoc) of
+        'false' ->
+            ?LOG_WARNING("failed to find matching doc ~s", [PathToDoc]);
+        'true' ->
+            schema_to_doc(Schema, PathToDoc)
+    end;
 schema_to_doc(Schema, DocName) ->
     AppDir = kz_term:to_binary(filename:basename(filename:dirname(filename:dirname(DocName)))),
     schema_to_doc(Schema, DocName, AppDir).
@@ -240,7 +250,8 @@ schema_to_doc(<<Schema/binary>>, DocName, AppName) ->
 schema_to_doc(SchemaJObj, DocName, <<AppName/binary>>) ->
     schema_to_doc(SchemaJObj, DocName, kz_term:to_atom(AppName, 'true'));
 schema_to_doc(SchemaJObj, DocName, App) ->
-    DocFile = filename:join([code:lib_dir(App), "doc", DocName]),
+    DocFile = doc_file(DocName, App),
+
     {'ok', DocContents} = file:read_file(DocFile),
     case SchemaJObj =/= 'undefined'
         andalso binary:split(DocContents, <<?SCHEMA_SECTION/binary, "\n">>)
@@ -250,6 +261,13 @@ schema_to_doc(SchemaJObj, DocName, App) ->
             'ok' = file:write_file(DocFile, Data);
         _Else ->
             ?LOG_DEBUG("file ~s appears to have a schema section already~n", [DocFile])
+    end.
+
+doc_file(DocName, App) ->
+    case filelib:is_regular(DocName) of
+        'true' -> DocName;
+        'false' ->
+            filename:join([code:lib_dir(App), "doc", DocName])
     end.
 
 -type ref_table() :: {kz_term:ne_binary(), ref_tables()} | kz_term:ne_binary().
