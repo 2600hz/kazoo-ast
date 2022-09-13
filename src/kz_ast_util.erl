@@ -23,7 +23,7 @@
         ,api_path/1
         ,ensure_file_exists/1
         ,create_schema/1
-        ,schema_to_table/1
+        ,schema_to_table/1, schema_to_table/2
         ,load_ref_schema/1
 
         ,project_apps/0, app_modules/1
@@ -277,28 +277,32 @@ app_modules(App) ->
         ]).
 
 -spec schema_to_table(kz_term:ne_binary() | kz_json:object()) -> iolist().
-schema_to_table(<<"#/definitions/", _/binary>>=_S) -> [];
-schema_to_table(Schema=?NE_BINARY) ->
-    case kz_json_schema:fload(Schema) of
-        {'ok', JObj} -> schema_to_table(JObj);
+schema_to_table(Schema) ->
+    schema_to_table(Schema, 'crossbar').
+
+-spec schema_to_table(kz_term:ne_binary() | kz_json:object(), atom()) -> iolist().
+schema_to_table(<<"#/definitions/", _/binary>>=_S, _App) -> [];
+schema_to_table(Schema=?NE_BINARY, App) ->
+    case kz_json_schema:fload(Schema, App) of
+        {'ok', JObj} -> schema_to_table(JObj, App);
         {'error', 'not_found'} ->
             ?LOG_DEBUG("failed to find ~s~n", [Schema]),
             throw({'error', 'no_schema'})
     end;
-schema_to_table(SchemaJObj) ->
-    try schema_to_table(SchemaJObj, []) of
+schema_to_table(SchemaJObj, _App) ->
+    try schema_to_table_refs(SchemaJObj, []) of
         [Table|RefTables] ->
             [?SCHEMA_SECTION, Table, "\n\n"
             ,cb_api_endpoints:ref_tables_to_doc(RefTables), "\n\n"
             ]
     catch
-        ?STACKTRACE('throw', 'no_type', ST)
-        ?LOG_DEBUG("failed to build table from schema ~s~n", [kz_doc:id(SchemaJObj)]),
-        ?LOG_DEBUG("~p~n", [ST]),
-        throw('no_type')
-        end.
+        'throw':'no_type':ST ->
+            ?LOG_DEBUG("failed to build table from schema ~s~n", [kz_doc:id(SchemaJObj)]),
+            ?LOG_DEBUG("~p~n", [ST]),
+            throw('no_type')
+    end.
 
-schema_to_table(SchemaJObj, BaseRefs) ->
+schema_to_table_refs(SchemaJObj, BaseRefs) ->
     Description = kz_json:get_binary_value(<<"description">>, SchemaJObj, <<>>),
 
     PlusPatternProperties = kz_json:merge(get_pattern_properties(SchemaJObj)
@@ -321,7 +325,7 @@ schema_to_table(SchemaJObj, BaseRefs) ->
             || RefSchemaName <- WithSubRefs,
                BaseRefs =:= [],
                (RefSchema = load_ref_schema(RefSchemaName)) =/= 'undefined',
-               (RefTable = schema_to_table(RefSchema, WithSubRefs)) =/= []
+               (RefTable = schema_to_table_refs(RefSchema, WithSubRefs)) =/= []
            ].
 
 -spec schema_description(binary()) -> iodata().

@@ -23,7 +23,8 @@
         ,to_ref_doc/0, to_ref_doc/2
         ,app_to_ref_doc/1
 
-        ,schema_to_doc/2, ref_tables_to_doc/1
+        ,schema_to_doc/2, schema_to_doc/3
+        ,ref_tables_to_doc/1
 
         ,generate_oas_json/2
         ,read_swagger_json/1
@@ -229,15 +230,23 @@ maybe_add_schema(EndpointName) ->
 %% @end
 %%------------------------------------------------------------------------------
 -spec schema_to_doc(kz_term:ne_binary(), kz_term:ne_binary()) -> 'ok'.
-schema_to_doc(Schema, Doc) ->
-    SchemaJObj = kz_ast_util:load_ref_schema(Schema),
-    DocFile = filename:join([code:lib_dir('crossbar'), "doc", Doc]),
+schema_to_doc(Schema, DocName) ->
+    AppDir = kz_term:to_binary(filename:basename(filename:dirname(filename:dirname(DocName)))),
+    schema_to_doc(Schema, DocName, AppDir).
+
+-spec schema_to_doc(kz_term:api_object() | kz_term:ne_binary(), kz_term:ne_binary(), atom() | kz_term:ne_binary()) -> 'ok'.
+schema_to_doc(<<Schema/binary>>, DocName, AppName) ->
+    schema_to_doc(kz_ast_util:load_ref_schema(Schema), DocName, AppName);
+schema_to_doc(SchemaJObj, DocName, <<AppName/binary>>) ->
+    schema_to_doc(SchemaJObj, DocName, kz_term:to_atom(AppName, 'true'));
+schema_to_doc(SchemaJObj, DocName, App) ->
+    DocFile = filename:join([code:lib_dir(App), "doc", DocName]),
     {'ok', DocContents} = file:read_file(DocFile),
     case SchemaJObj =/= 'undefined'
         andalso binary:split(DocContents, <<?SCHEMA_SECTION/binary, "\n">>)
     of
         [Before, After] ->
-            Data = [Before, kz_ast_util:schema_to_table(SchemaJObj), After],
+            Data = [Before, kz_ast_util:schema_to_table(SchemaJObj, App), After],
             'ok' = file:write_file(DocFile, Data);
         _Else ->
             ?LOG_DEBUG("file ~s appears to have a schema section already~n", [DocFile])
