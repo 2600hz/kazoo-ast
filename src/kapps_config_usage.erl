@@ -362,6 +362,7 @@ guess_type('get_ne_binary', _) -> <<"string">>;
 guess_type('get_ne_binaries', _) -> [<<"string">>];
 guess_type('get_pos_integer', _) -> <<"pos_integer">>;
 guess_type('get_non_neg_integer', _) -> <<"non_neg_integer">>;
+guess_type('get_integers', _) -> [<<"integer">>];
 guess_type('get_ne_binary_or_ne_binaries', _) -> {<<"string">>, [<<"string">>]};
 guess_type('get_json', _) -> <<"object">>;
 guess_type('get_jsons', _) -> [<<"object">>];
