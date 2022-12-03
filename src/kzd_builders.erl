@@ -21,7 +21,9 @@
 -spec build_accessors() -> 'ok'.
 build_accessors() ->
     ?LOG_DEBUG("building accessors: "),
-    'ok' = filelib:fold_files(kz_term:to_list(kz_ast_util:schema_path(<<>>))
+    Path = kz_ast_util:schema_path(<<>>),
+    ?LOG_DEBUG("Schema path ~s~n", [Path]),
+    'ok' = filelib:fold_files(kz_term:to_list(Path)
                              ,"^[a-z_.]+\\.json$"
                              ,'false'
                              ,fun build_accessor/2

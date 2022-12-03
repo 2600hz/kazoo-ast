@@ -346,7 +346,7 @@ schema_to_table(SchemaJObj, _App) ->
     end.
 
 schema_to_table_refs(SchemaJObj, BaseRefs) ->
-    Description = kz_json:get_binary_value(<<"description">>, SchemaJObj, <<>>),
+    Description = get_description(SchemaJObj),
 
     PlusPatternProperties = kz_json:merge(get_pattern_properties(SchemaJObj)
                                          ,get_properties(SchemaJObj)
@@ -355,10 +355,10 @@ schema_to_table_refs(SchemaJObj, BaseRefs) ->
     F = fun (K, V, Acc) -> property_to_row(SchemaJObj, K, V, Acc) end,
     {Reversed, RefSchemas} = kz_json:foldl(F, {[], BaseRefs}, PlusPatternProperties),
 
-    OneOfs = kz_json:get_list_value(<<"oneOf">>, SchemaJObj, []),
+    OneOfs = get_oneOf(SchemaJObj),
     OneOfRefs = lists:foldl(fun one_of_to_row/2, RefSchemas, OneOfs),
 
-    AnyOfs = kz_json:get_list_value(<<"anyOf">>, SchemaJObj, []),
+    AnyOfs = get_anyOf(SchemaJObj),
     AnyOfRefs = lists:foldl(fun any_of_to_row/2, OneOfRefs, AnyOfs),
 
     WithSubRefs = include_sub_refs(AnyOfRefs),
@@ -448,40 +448,52 @@ property_to_row(SchemaJObj, Names, Settings, {Table, Refs}) ->
                 cell_wrap('undefined')
         end,
 
+    SchemaTypeValue = case get_type(Settings) of
+                          {'ref', _RefId, RefType} -> RefType;
+                          Type -> Type
+                      end,
+
+    %% if schematypevalue is a list of values (like oneOf/anyOf), let
+    %% sub_properties define the rows
+    UpdatedTable =
+        case is_list(SchemaTypeValue) of
+            'true' -> Table;
+            'false' ->
+                [?TABLE_ROW(cell_wrap(kz_binary:join(Names, <<".">>))
+                           ,settings_description(Settings)
+                           ,SchemaType
+                           ,cell_wrap(get_default(Settings))
+                           ,cell_wrap(is_row_required(Names, SchemaJObj))
+                           ,cell_wrap(support_level(Names, SchemaJObj))
+                           )
+                | Table
+                ]
+        end,
+
     maybe_sub_properties_to_row(SchemaJObj
-                               ,get_type(Settings)
+                               ,SchemaTypeValue
                                ,Names
                                ,Settings
-                               ,{[?TABLE_ROW(cell_wrap(kz_binary:join(Names, <<".">>))
-                                            ,settings_description(Settings)
-                                            ,SchemaType
-                                            ,cell_wrap(kz_json:get_value(<<"default">>, Settings))
-                                            ,cell_wrap(is_row_required(Names, SchemaJObj))
-                                            ,cell_wrap(support_level(Names, SchemaJObj))
-                                            )
-                                 | Table
-                                 ]
+                               ,{UpdatedTable
                                 ,maybe_add_ref(Refs, Settings)
                                 }
                                ).
 
 settings_description(Settings) ->
-    maybe_description(Settings, kz_json:get_ne_binary_value(<<"description">>, Settings)).
+    maybe_description(Settings, get_description(Settings)).
 
-maybe_description(Settings, 'undefined') ->
-    maybe_description_from_ref(Settings, kz_json:get_value(<<"$ref">>, Settings));
+maybe_description(Settings, <<>>) ->
+    maybe_description_from_ref(Settings, get_ref(Settings));
 maybe_description(_Settings, Description) ->
     Description.
 
 maybe_description_from_ref(Settings, 'undefined') ->
-    maybe_description_from_one_or_any(kz_json:get_first_defined([<<"oneOf">>, <<"anyOf">>], Settings));
+    maybe_description_from_one_or_any(get_oneOf(Settings) ++ get_anyOf(Settings));
 maybe_description_from_ref(_Settings, RefSchemaName) ->
     ?LOG_INFO("using ref ~s description", [RefSchemaName]),
     {'ok', RefSchema} = kz_json_schema:fload(RefSchemaName),
-    kz_json:get_ne_binary_value(<<"description">>, RefSchema, <<" ">>).
+    get_description(RefSchema, <<" ">>).
 
-maybe_description_from_one_or_any('undefined') ->
-    <<" ">>;
 maybe_description_from_one_or_any([]) ->
     <<" ">>;
 maybe_description_from_one_or_any(Schemas) ->
@@ -540,10 +552,10 @@ name_to_path(Names, Last) ->
 support_level([], SchemaJObj) ->
     kz_json:get_ne_binary_value(<<"support_level">>, SchemaJObj);
 support_level(["[]"|Names], SchemaJObj) ->
-    ItemSchemaJObj = kz_json:get_json_value([<<"items">>], SchemaJObj),
+    ItemSchemaJObj = get_items(SchemaJObj),
     support_level(Names, ItemSchemaJObj);
 support_level([Name|Names], SchemaJObj) ->
-    case kz_json:get_json_value([<<"properties">>, Name], SchemaJObj) of
+    case kz_json:get_json_value(Name, get_properties(SchemaJObj)) of
         'undefined' -> 'undefined';
         NameSchema -> support_level(Names, NameSchema)
     end.
@@ -554,24 +566,25 @@ schema_type(Settings) ->
         Type -> cell_wrap(Type)
     end.
 
+schema_type(_Settings, {'ref', RefId, _Type}) ->
+    schema_ref_type(RefId);
+schema_type(_Settings, {'oneOf', OneOf, Type}) ->
+    schema_type(OneOf, Type);
+schema_type(_Settings, {'anyOf', AnyOf, Type}) ->
+    schema_type(AnyOf, Type);
 schema_type(Settings, 'undefined') ->
-    case get_ref(Settings) of
-        'undefined' ->
-            maybe_schema_type_from_enum(Settings);
-        Def ->
-            schema_ref_type(Def)
-    end;
+    maybe_schema_type_from_enum(Settings);
 schema_type(Settings, <<"array">>) ->
     schema_array_type(Settings);
 schema_type(Settings, <<"string">>) ->
-    case kz_json:get_value(<<"enum">>, Settings) of
-        L when is_list(L) -> schema_enum_type(L);
-        _ -> schema_string_type(Settings)
+    case get_enum(Settings) of
+        'undefined' -> schema_string_type(Settings);
+        L when is_list(L) -> schema_enum_type(L)
     end;
 schema_type(Settings, <<"integer">>) ->
     schema_integer_type(Settings);
-schema_type(Settings, Types) when is_list(Types) ->
-    kz_binary:join([schema_type(Settings, Type) || Type <- Types], <<" | ">>);
+schema_type(_Settings, Types) when is_list(Types) ->
+    kz_binary:join([schema_type('undefined', Type) || Type <- Types], <<" | ">>);
 schema_type(_Settings, Type) ->
     <<Type/binary, "()">>.
 
@@ -587,15 +600,15 @@ schema_integer_type(Min, Max) ->
     <<"integer(", (kz_term:to_binary(Min))/binary, "..", (kz_term:to_binary(Max))/binary, ")">>.
 
 maybe_schema_type_from_enum(Settings) ->
-    case kz_json:get_list_value(<<"enum">>, Settings) of
+    case get_enum(Settings) of
         L when is_list(L) -> schema_enum_type(L);
         'undefined' ->
             maybe_schema_type_from_oneof(Settings)
     end.
 
 maybe_schema_type_from_oneof(Settings) ->
-    case kz_json:get_list_value(<<"oneOf">>, Settings) of
-        'undefined' ->
+    case get_oneOf(Settings) of
+        [] ->
             maybe_schema_type_from_anyof(Settings);
         OneOfs ->
             SchemaTypes = [schema_type(OneOfJObj, get_type(OneOfJObj))
@@ -605,19 +618,19 @@ maybe_schema_type_from_oneof(Settings) ->
     end.
 
 maybe_schema_type_from_anyof(Settings) ->
-    case kz_json:get_list_value(<<"anyOf">>, Settings) of
-        'undefined' ->
+    case get_anyOf(Settings) of
+        [] ->
             maybe_schema_type_from_allof(Settings);
         AnyOf ->
             SchemaTypes = [schema_type(AnyOfJObj, get_type(AnyOfJObj))
                            || AnyOfJObj <- AnyOf
                           ],
-            kz_binary:join(SchemaTypes, <<" || ">>)
+            kz_binary:join(SchemaTypes, <<" | ">>)
     end.
 
 maybe_schema_type_from_allof(Settings) ->
-    case kz_json:get_list_value(<<"allOf">>, Settings) of
-        'undefined' ->
+    case get_allOf(Settings) of
+        [] ->
             ?LOG_DEBUG("no type: ~p~n", [Settings]),
             throw('no_type');
         AllOf ->
@@ -627,26 +640,28 @@ maybe_schema_type_from_allof(Settings) ->
             kz_binary:join(SchemaTypes, <<" || ">>)
     end.
 
-schema_ref_type(Def) ->
+schema_ref_type(<<Def/binary>>) ->
     <<"[#/definitions/", Def/binary, "](#", (to_anchor_link(Def))/binary, ")">>.
 
 schema_array_type(Settings) ->
-    case {kz_json:get_ne_binary_value([<<"items">>, <<"$ref">>], Settings)
-         ,kz_json:get_ne_value([<<"items">>, <<"type">>], Settings)
-         }
-    of
-        {'undefined', 'undefined'} -> <<"array()">>;
+    Items = get_items(Settings),
+    case {get_ref(Items), get_type(Items)} of
+        {'undefined', 'undefined'} ->
+            <<"array()">>;
         {'undefined', Type} ->
-            ItemType = schema_type(kz_json:get_json_value(<<"items">>, Settings), Type),
+            ItemType = schema_type(Items, Type),
             <<"array(", ItemType/binary, ")">>;
-        {Ref, _Type} ->
-            <<"array(", (schema_ref_type(Ref))/binary, ")">>
+        {RefId, _Type} ->
+            <<"array(", (schema_ref_type(RefId))/binary, ")">>
     end.
 
 schema_enum_type(L) ->
     <<"string('", (kz_binary:join(L, <<"' | '">>))/binary, "')">>.
 
 schema_string_type(Settings) ->
+    schema_string_type(Settings, get_format(Settings)).
+
+schema_string_type(Settings, 'undefined') ->
     case {kz_json:get_integer_value(<<"minLength">>, Settings)
          ,kz_json:get_integer_value(<<"maxLength">>, Settings)
          }
@@ -656,7 +671,8 @@ schema_string_type(Settings) ->
         {MinLength, 'undefined'} -> <<"string(", (kz_term:to_binary(MinLength))/binary, "..)">>;
         {Length, Length} -> <<"string(", (kz_term:to_binary(Length))/binary, ")">>;
         {MinLength, MaxLength} -> <<"string(", (kz_term:to_binary(MinLength))/binary, "..", (kz_term:to_binary(MaxLength))/binary, ")">>
-    end.
+    end;
+schema_string_type(_Settings, Format) -> <<Format/binary, "()">>.
 
 to_anchor_link(Bin) ->
     binary:replace(Bin, <<".">>, <<>>).
@@ -686,16 +702,25 @@ maybe_sub_properties_to_row(SchemaJObj, <<"object">>, Names, Settings, {_,_}=Acc
                         ,maybe_any_of_to_rows(SchemaJObj, Names, Settings, Acc2)
                         );
 maybe_sub_properties_to_row(SchemaJObj, <<"array">>, Names, Settings, {Table, Refs}) ->
-    ItemType = kz_json:get_ne_binary_value([<<"items">>, <<"type">>], Settings),
-    ItemRef = kz_json:get_ne_binary_value([<<"items">>, <<"$ref">>], Settings),
+    Items = get_items(Settings),
+    ItemType = get_type(Items),
+    ItemRef = get_ref(Items),
     ?LOG_DEBUG("array item type/ref for ~p: ~p/~p", [Names, ItemType, ItemRef]),
+
     case {ItemType, ItemRef} of
+        {Types, 'undefined'} when is_list(Types) ->
+            maybe_sub_properties_to_row(SchemaJObj
+                                       ,Types
+                                       ,Names ++ ["[]"]
+                                       ,Items
+                                       ,{Table, Refs}
+                                       );
         {<<"object">> = Type, 'undefined'} ->
             ?LOG_DEBUG("array(object()): ~p", [Settings]),
             maybe_sub_properties_to_row(SchemaJObj
                                        ,Type
                                        ,Names ++ ["[]"]
-                                       ,kz_json:get_json_value(<<"items">>, Settings, kz_json:new())
+                                       ,Items
                                        ,{Table, Refs}
                                        );
         {<<"object">> = _Type, RefId} ->
@@ -705,20 +730,13 @@ maybe_sub_properties_to_row(SchemaJObj, <<"array">>, Names, Settings, {Table, Re
             maybe_sub_properties_to_row(SchemaJObj
                                        ,get_type(RefSchema)
                                        ,Names ++ ["[]"]
-                                       ,kz_json:get_json_value(<<"items">>, Settings, kz_json:new())
+                                       ,Items
                                        ,{Table, maybe_add_ref(Refs, RefId)}
                                        );
 
-        %% maybe_sub_properties_to_row(SchemaJObj
-        %%                            ,Type
-        %%                            ,Names ++ ["[]"]
-        %%                            ,
-        %%                            ,{Table, Refs}
-        %%                            );
         {<<"string">>, 'undefined'} ->
             ?LOG_DEBUG("getting array item types for ~p", [Names]),
-            Items = kz_json:get_json_value(<<"items">>, Settings),
-            EnumedType = schema_type(Items, get_type(Items)),
+            EnumedType = schema_type(Items, ItemType),
             ?LOG_DEBUG("array(~s)", [EnumedType]),
             {[?TABLE_ROW(cell_wrap(kz_binary:join(Names ++ ["[]"], <<".">>))
                         ,<<" ">>
@@ -737,32 +755,46 @@ maybe_sub_properties_to_row(SchemaJObj, <<"array">>, Names, Settings, {Table, Re
             ?LOG_DEBUG("unhandled array type ~p", [_Type]),
             {Table, Refs}
     end;
-maybe_sub_properties_to_row(SchemaJObj, [_|_]=Types, Names, Settings, Acc) ->
+maybe_sub_properties_to_row(SchemaJObj, [_|_]=Types, Names, Settings, {Table, Refs}) ->
     ?LOG_DEBUG("multiple types for ~p: ~p", [Names, Types]),
-    lists:foldl(fun(Type, Acc0) -> maybe_sub_properties_to_row(SchemaJObj, Type, Names, Settings, Acc0) end
-               ,Acc
-               ,Types
-               );
+
+    {[?TABLE_ROW(cell_wrap(kz_binary:join(Names, <<".">>))
+                ,settings_description(Settings)
+                ,cell_wrap(schema_type(SchemaJObj, Types))
+                ,<<" ">>
+                ,cell_wrap(is_row_required(Names, SchemaJObj))
+                ,cell_wrap(support_level(Names, SchemaJObj))
+                )
+     | Table
+     ]
+    ,Refs
+    };
 maybe_sub_properties_to_row(SchemaJObj, 'undefined', Names, Settings, Acc) ->
-    ?LOG_DEBUG("no type defined for ~p", [Names]),
     case get_ref(Settings) of
         'undefined' -> Acc;
         RefId ->
             {'ok', RefSchema} = kz_json_schema:fload(RefId),
             case get_type(RefSchema) of
-                undefined -> Acc;
-                Type ->
-                    ?LOG_DEBUG("$ref ~p type ~p", [RefId, Type]),
-                    maybe_sub_properties_to_row(SchemaJObj, Type, Names, Settings, Acc)
+                'undefined' ->
+                    ?LOG_ERROR("no type for ~p (ref ~p)~n", [Names, RefId]),
+                    ?LOG_ERROR("schema: ~p~n", [SchemaJObj]),
+                    throw('no_type');
+                RefType ->
+                    ?LOG_DEBUG("$ref ~p type ~p", [RefId, RefType]),
+                    maybe_sub_properties_to_row(SchemaJObj, RefType, Names, Settings, Acc)
             end
     end;
+maybe_sub_properties_to_row(_SchemaJObj, {'oneOf', OneOf, Type}, Keys, Settings, Acc) ->
+    maybe_sub_properties_to_row(OneOf, Type, Keys, Settings, Acc);
+maybe_sub_properties_to_row(_SchemaJObj, {'anyOf', AnyOf, _Type}, Keys, Settings, Acc) ->
+    maybe_sub_properties_to_row(AnyOf, <<"array">>, Keys, Settings, Acc);
 maybe_sub_properties_to_row(_SchemaJObj, _Type, _Keys, _Settings, Acc) ->
     ?LOG_DEBUG("ignoring type ~p for ~p", [_Type, _Keys]),
     Acc.
 
 maybe_array_composite_types(Names, Settings, {Table, Refs}) ->
-    case kz_json:get_list_value([<<"items">>, <<"oneOf">>], Settings) of
-        'undefined' -> {Table, Refs};
+    case get_oneOf(get_items(Settings)) of
+        [] -> {Table, Refs};
         [_|_]=SubSchemas ->
             ?LOG_DEBUG("oneOf schemas: ~p", [SubSchemas]),
             array_composite_types(Names, SubSchemas, {Table, Refs})
@@ -805,7 +837,7 @@ maybe_one_of_to_rows(SchemaJObj, Names, Settings, Acc0) ->
                         maybe_one_of_to_row(SchemaJObj, Names, SubSchema, Acc1)
                 end
                ,Acc0
-               ,kz_json:get_list_value(<<"oneOf">>, Settings, [])
+               ,get_oneOf(Settings)
                ).
 
 maybe_one_of_to_row(_SchemaJObj, _Names, Settings, {Table, Refs0}) ->
@@ -816,7 +848,7 @@ maybe_any_of_to_rows(SchemaJObj, Names, Settings, Acc0) ->
                         maybe_any_of_to_row(SchemaJObj, Names, SubSchema, Acc1)
                 end
                ,Acc0
-               ,kz_json:get_list_value(<<"anyOf">>, Settings, [])
+               ,get_anyOf(Settings)
                ).
 
 maybe_any_of_to_row(SchemaJObj, Names, Settings, Acc0) ->
@@ -834,8 +866,33 @@ maybe_any_of_to_row(SchemaJObj, Names, Settings, Acc0) ->
         end,
     kz_json:foldl(F, Acc0, PlusPatternProperties).
 
+get_type('undefined') -> 'undefined';
 get_type(Schema) ->
-    kz_json:get_value(<<"type">>, Schema).
+    case kz_json:get_ne_binary_value(<<"type">>, Schema) of
+        'undefined' -> type_from_oneof(Schema, get_oneOf(Schema));
+        Type -> Type
+    end.
+
+type_from_oneof(Schema, []) ->
+    type_from_anyof(Schema, get_anyOf(Schema));
+type_from_oneof(_Schema, OneOf) ->
+    [{'oneOf', Schema, get_type(Schema)} || Schema <- OneOf].
+
+type_from_anyof(Schema, []) ->
+    type_from_allof(Schema, get_allOf(Schema));
+type_from_anyof(_Schema, AnyOf) ->
+    [{'anyOf', Schema, get_type(Schema)} || Schema <- AnyOf].
+
+type_from_allof(Schema, []) ->
+    type_from_ref(Schema, get_ref(Schema));
+type_from_allof(_Schema, AllOf) ->
+    [{'allOf', Schema, get_type(Schema)} || Schema <- AllOf].
+
+type_from_ref(_Schema, 'undefined') ->
+    'undefined';
+type_from_ref(_Schema, RefId) ->
+    {'ok', RefSchema} = kz_json_schema:fload(RefId),
+    {'ref', RefId, get_type(RefSchema)}.
 
 get_ref(Schema) ->
     kz_json:get_ne_binary_value(<<"$ref">>, Schema).
@@ -845,6 +902,33 @@ get_properties(Schema) ->
 
 get_pattern_properties(Schema) ->
     kz_json:get_json_value(<<"patternProperties">>, Schema, kz_json:new()).
+
+get_anyOf(Schema) ->
+    kz_json:get_list_value(<<"anyOf">>, Schema, []).
+
+get_oneOf(Schema) ->
+    kz_json:get_list_value(<<"oneOf">>, Schema, []).
+
+get_allOf(Schema) ->
+    kz_json:get_list_value(<<"allOf">>, Schema, []).
+
+get_description(Schema) ->
+    get_description(Schema, <<>>).
+
+get_description(Schema, Default) ->
+    kz_json:get_binary_value(<<"description">>, Schema, Default).
+
+get_default(Schema) ->
+    kz_json:get_value(<<"default">>, Schema).
+
+get_enum(Schema) ->
+    kz_json:get_list_value(<<"enum">>, Schema).
+
+get_items(Schema) ->
+    kz_json:get_json_value([<<"items">>], Schema).
+
+get_format(Schema) ->
+    kz_json:get_ne_binary_value(<<"format">>, Schema).
 
 get_minimum(Schema) ->
     kz_json:get_integer_value(<<"minimum">>, Schema).
