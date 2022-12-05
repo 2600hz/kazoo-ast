@@ -330,9 +330,9 @@ schema_to_table(Schema=?NE_BINARY, App) ->
         {'ok', JObj} -> schema_to_table(JObj, App);
         {'error', 'not_found'} ->
             ?LOG_DEBUG("failed to find ~s~n", [Schema]),
-            throw({'error', 'no_schema'})
+            throw({'no_schema', App, Schema})
     end;
-schema_to_table(SchemaJObj, _App) ->
+schema_to_table(SchemaJObj, App) ->
     try schema_to_table_refs(SchemaJObj, []) of
         [Table|RefTables] ->
             [?SCHEMA_SECTION, Table, "\n\n"
@@ -342,7 +342,7 @@ schema_to_table(SchemaJObj, _App) ->
         'throw':'no_type':ST ->
             ?LOG_DEBUG("failed to build table from schema ~s~n", [kz_doc:id(SchemaJObj)]),
             ?LOG_DEBUG("~p~n", [ST]),
-            throw('no_type')
+            throw({'no_type', App, SchemaJObj})
     end.
 
 schema_to_table_refs(SchemaJObj, BaseRefs) ->
