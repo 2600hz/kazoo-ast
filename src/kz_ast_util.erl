@@ -784,10 +784,6 @@ maybe_sub_properties_to_row(SchemaJObj, 'undefined', Names, Settings, Acc) ->
                     maybe_sub_properties_to_row(SchemaJObj, RefType, Names, Settings, Acc)
             end
     end;
-maybe_sub_properties_to_row(_SchemaJObj, {'oneOf', OneOf, Type}, Keys, Settings, Acc) ->
-    maybe_sub_properties_to_row(OneOf, Type, Keys, Settings, Acc);
-maybe_sub_properties_to_row(_SchemaJObj, {'anyOf', AnyOf, _Type}, Keys, Settings, Acc) ->
-    maybe_sub_properties_to_row(AnyOf, <<"array">>, Keys, Settings, Acc);
 maybe_sub_properties_to_row(_SchemaJObj, _Type, _Keys, _Settings, Acc) ->
     ?LOG_DEBUG("ignoring type ~p for ~p", [_Type, _Keys]),
     Acc.
