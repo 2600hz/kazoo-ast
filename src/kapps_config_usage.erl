@@ -133,7 +133,7 @@ static_fields(ConfigType, Name, JObj) ->
 
 -spec process_project() -> kz_json:object().
 process_project() ->
-    ?SUP_LOG_DEBUG("processing kapps_config/kapps_account_config usage: "),
+    io:format("processing kapps_config/kapps_account_config usage: "),
     Options = [{'expression', fun expression_to_schema/2}
               ,{'module', fun print_dot/2}
               ,{'accumulator', new_acc()}
@@ -141,7 +141,7 @@ process_project() ->
               ,{'after_application', fun add_schemas_to_bucket/2}
               ],
     #{'project_schemas' := Usage} = kazoo_ast:walk_project(Options),
-    ?SUP_LOG_DEBUG(" done~n"),
+    io:format(" done~n"),
     Usage.
 
 -spec process_app(atom()) -> kz_json:object().
@@ -157,7 +157,7 @@ process_app(App) ->
 
 -spec process_modules([atom()]) -> kz_json:object().
 process_modules(Modules) when is_list(Modules) ->
-    ?SUP_LOG_DEBUG("processing kapps_config/kapps_account_config usage: "),
+    io:format("processing kapps_config/kapps_account_config usage: "),
     Options = [{'expression', fun expression_to_schema/2}
               ,{'module', fun add_module_app_config/2}
               ,{'accumulator', new_acc()}
@@ -165,7 +165,7 @@ process_modules(Modules) when is_list(Modules) ->
               ,{'after_module', fun add_schemas_to_bucket/2}
               ],
     #{'project_schemas' := Usage} = kazoo_ast:walk_modules(Modules, Options),
-    ?SUP_LOG_DEBUG(" done~n"),
+    io:format(" done~n"),
     Usage.
 
 print_dot('pqc_cb_system_configs', Acc) ->
