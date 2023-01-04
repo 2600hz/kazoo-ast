@@ -1,5 +1,5 @@
 %%%-----------------------------------------------------------------------------
-%%% @copyright (C) 2015-2022, 2600Hz
+%%% @copyright (C) 2015-2023, 2600Hz
 %%% @doc Checks files to find raw usage of JSON.
 %%% @author James Aimonetti
 %%% This Source Code Form is subject to the terms of the Mozilla Public

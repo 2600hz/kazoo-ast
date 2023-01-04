@@ -1,5 +1,5 @@
 %%%-----------------------------------------------------------------------------
-%%% @copyright (C) 2017-2022, 2600Hz
+%%% @copyright (C) 2017-2023, 2600Hz
 %%% @doc Kazoo API Definition Helpers.
 %%% @author Hesaam Farhang
 %%% This Source Code Form is subject to the terms of the Mozilla Public
