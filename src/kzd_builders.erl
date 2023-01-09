@@ -314,6 +314,13 @@ default_value_str("get_binary_value", Default) ->
     ["<<\"", Default, "\">>"];
 default_value_str("get_list_value", []) ->
     "\[\]";
+default_value_str("is_true", Default) ->
+    ["'", kz_term:to_binary(Default), "'"];
+default_value_str("is_false", Default) ->
+    ["'", kz_term:to_binary(Default), "'"];
+default_value_str("get_boolean_value", Default) ->
+    ["'", kz_term:to_binary(Default), "'"];
+
 default_value_str(_JSONGetterFun, ?EMPTY_JSON_OBJECT) ->
     "kz_json:new()";
 default_value_str(_JSONGetterFun, Default) ->
