@@ -815,6 +815,7 @@ path_name(Module) ->
         {'match', [<<"token_auth">>=Name]} -> Name;
         {'match', [<<"user_auth">>=Name]} -> Name;
         {'match', [<<"quickcall">>=Name]} -> <<?ACCOUNTS_PREFIX"/"?ENDPOINTS_PREFIX"/", Name/binary>>;
+        {'match', [<<"pushes">>=Name]} -> <<?ACCOUNTS_PREFIX"/"?ENDPOINTS_PREFIX"/", Name/binary>>;
         {'match', [Name]} -> <<?ACCOUNTS_PREFIX"/", Name/binary>>;
         {'match', [Name, ?CURRENT_VERSION]} -> <<?ACCOUNTS_PREFIX"/", Name/binary>>;
         {'match', _M} -> 'undefined'
