@@ -751,7 +751,7 @@ maybe_any_of_to_row(SchemaJObj, Names, Settings, Acc0) ->
     kz_json:foldl(F, Acc0, PlusPatternProperties).
 
 get_type(Schema) ->
-    kz_json:get_value(<<"type">>, Schema).
+    kz_json:get_value(<<"type">>, Schema, <<"object">>).
 
 get_ref(Schema) ->
     kz_json:get_ne_binary_value(<<"$ref">>, Schema).
