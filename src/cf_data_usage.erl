@@ -618,7 +618,7 @@ maybe_add_usage(Usages, Call) ->
 process_mf_arity(#usage{usages=Usages}=Acc, M, F, Arity) ->
     case mfa_clauses(Acc, M, F, Arity) of
         [] -> Acc;
-        [Clauses] ->
+        Clauses ->
             #usage{usages=ModuleUsages
                   ,functions=NewFs
                   ,current_module=_MCM
@@ -670,14 +670,14 @@ process_mfa_call(#usage{functions=Fs
         [] ->
             ?LOG_DEBUG("  no clauses for ~p:~p~n", [M, F]),
             Acc#usage{visited=lists:usort([{M, F, As} | Vs])};
-        [Clauses] when F =:= 'evaluate_rules_for_creation';
-                       F =:= 'create_endpoints' ->
+        Clauses when F =:= 'evaluate_rules_for_creation';
+                     F =:= 'create_endpoints' ->
             process_mfa_clauses_kz_endpoint(Acc, M, F, As, Clauses);
-        [_Clauses] when M =:= 'kzc_recordings_sup',
-                        F =:= 'start_recording' ->
+        _Clauses when M =:= 'kzc_recordings_sup',
+                      F =:= 'start_recording' ->
             ?LOG_DEBUG("checking kzc_recording:init/1~n", []),
             process_mfa_call(Acc, 'kzc_recording', 'init', [?VAR('_', 'Call'), ?VAR('_', 'Data')]);
-        [Clauses] ->
+        Clauses ->
             ?LOG_DEBUG("processing ~p clauses for ~p:~p/~p", [length(Clauses), M, F, length(As)]),
             process_mfa_clauses(Acc, M, F, As, Clauses)
     end.
@@ -839,12 +839,13 @@ process_mfa_clause(#usage{data_var_name=DataName
     end.
 
 mfa_clauses(#usage{functions=Fs}, Module, Function, Arity) ->
-    [[hd(Cs) || {M, F, A, Cs} <- Fs,
-                Module =:= M,
-                Function =:= F,
-                Arity =:= A,
-                begin ?LOG_DEBUG(" adding clause ~p", [Cs]), 'true' end
-     ]].
+    [C || {M, F, A, Cs} <- Fs,
+          C <- Cs,
+          Module =:= M,
+          Function =:= F,
+          Arity =:= A,
+          begin ?LOG_DEBUG(" adding clause ~p", [C]), 'true' end
+    ].
 
 data_index(DataName, Args) ->
     data_index(DataName, Args, 1).
