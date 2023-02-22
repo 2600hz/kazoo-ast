@@ -627,10 +627,6 @@ process_mfa_call(#usage{functions=Fs
         Clauses when F =:= 'evaluate_rules_for_creation';
                      F =:= 'create_endpoints' ->
             process_mfa_clauses_kz_endpoint(Acc, M, F, As, Clauses);
-        _Clauses when M =:= 'kzc_recordings_sup',
-                      F =:= 'start_recording' ->
-            ?LOG_DEBUG("checking kzc_recording:init/1~n", []),
-            process_mfa_call(Acc, 'kzc_recording', 'init', [?VAR('_', 'Call'), ?VAR('_', 'Data')]);
         Clauses ->
             process_mfa_clauses(Acc, M, F, As, Clauses)
     end.
