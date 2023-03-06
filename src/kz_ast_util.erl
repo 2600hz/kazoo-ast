@@ -355,7 +355,6 @@ include_sub_refs_from_schema(<<"patternProperties">>, ValueJObj, Acc) ->
     ?LOG_DEBUG("pp: ~p", [ValueJObj]),
     kz_json:foldl(fun include_sub_refs_from_schema/3, Acc, ValueJObj);
 include_sub_refs_from_schema(<<"oneOf">>, Values, Acc) ->
-    ?LOG_DEBUG("one-of: ~p", [Values]),
     lists:foldl(fun(JObj, Acc0) ->
                         kz_json:foldl(fun include_sub_refs_from_schema/3, Acc0, JObj)
                 end
@@ -446,11 +445,24 @@ maybe_description_from_one_or_any(Schemas) ->
     kz_json:find(<<"description">>, Schemas, <<" ">>).
 
 -spec maybe_add_ref(kz_term:ne_binaries(), kz_term:api_ne_binary() | kz_json:object()) -> kz_term:ne_binaries().
-maybe_add_ref(Refs, 'undefined') -> Refs;
+maybe_add_ref(Refs, 'undefined') ->Refs;
 maybe_add_ref(Refs, <<RefId/binary>>) ->
-    lists:usort([RefId | Refs]);
+    case lists:member(RefId, Refs) of
+        'false' -> [RefId | Refs];
+        'true' -> Refs
+    end;
 maybe_add_ref(Refs, Settings) ->
-    maybe_add_ref(Refs, get_ref(Settings)).
+    maybe_add_ref(Refs, Settings, get_ref(Settings)).
+
+maybe_add_ref(Refs, Settings, 'undefined') ->
+    maybe_add_one_of_refs(Refs, kz_json:get_list_value(<<"oneOf">>, Settings, []));
+maybe_add_ref(Refs, _Settings, <<RefId/binary>>) ->
+    maybe_add_ref(Refs, RefId).
+
+maybe_add_one_of_refs(Refs, []) ->
+    Refs;
+maybe_add_one_of_refs(Refs, OneOfs) ->
+    lists:foldl(fun(OneOf, Acc) -> maybe_add_ref(Acc, OneOf) end, Refs, OneOfs).
 
 -spec is_row_required([kz_term:ne_binary() | nonempty_string()], kz_json:object()) -> boolean().
 is_row_required(Names=[_|_], SchemaJObj) ->
@@ -528,9 +540,9 @@ maybe_schema_type_from_oneof(Settings) ->
     case kz_json:get_list_value(<<"oneOf">>, Settings) of
         'undefined' ->
             maybe_schema_type_from_anyof(Settings);
-        OneOf ->
+        OneOfs ->
             SchemaTypes = [schema_type(OneOfJObj, get_type(OneOfJObj))
-                           || OneOfJObj <- OneOf
+                           || OneOfJObj <- OneOfs
                           ],
             kz_binary:join(SchemaTypes, <<" | ">>)
     end.
