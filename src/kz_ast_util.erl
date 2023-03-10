@@ -550,11 +550,22 @@ maybe_schema_type_from_oneof(Settings) ->
 maybe_schema_type_from_anyof(Settings) ->
     case kz_json:get_list_value(<<"anyOf">>, Settings) of
         'undefined' ->
-            ?LOG_DEBUG("no type: ~p~n", [Settings]),
-            throw('no_type');
+            maybe_schema_type_from_allof(Settings);
         AnyOf ->
             SchemaTypes = [schema_type(AnyOfJObj, get_type(AnyOfJObj))
                            || AnyOfJObj <- AnyOf
+                          ],
+            kz_binary:join(SchemaTypes, <<" || ">>)
+    end.
+
+maybe_schema_type_from_allof(Settings) ->
+    case kz_json:get_list_value(<<"allOf">>, Settings) of
+        'undefined' ->
+            ?LOG_DEBUG("no type: ~p~n", [Settings]),
+            throw('no_type');
+        AllOf ->
+            SchemaTypes = [schema_type(AllOfJObj, get_type(AllOfJObj))
+                           || AllOfJObj <- AllOf
                           ],
             kz_binary:join(SchemaTypes, <<" || ">>)
     end.
