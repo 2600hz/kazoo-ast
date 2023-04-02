@@ -297,7 +297,7 @@ process_app(App, Acc) ->
     end.
 
 process_app(App, Acc, ExistingApps) ->
-    KnownApps = ordsets:from_list(ExistingApps ++ known_apps(App) -- ['kernel']),
+    KnownApps = ordsets:from_list((ExistingApps ++ known_apps(App)) -- ['kernel']),
 
     RemoteModules = remote_calls(App),
     RemoteApps = ordsets:from_list(modules_as_apps(App, RemoteModules)),
