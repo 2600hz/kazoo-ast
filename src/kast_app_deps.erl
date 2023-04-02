@@ -297,7 +297,7 @@ process_app(App, Acc) ->
     end.
 
 process_app(App, Acc, ExistingApps) ->
-    KnownApps = ordsets:from_list(ExistingApps -- ['kernel']),
+    KnownApps = ordsets:from_list(ExistingApps ++ known_apps(App) -- ['kernel']),
 
     RemoteModules = remote_calls(App),
     RemoteApps = ordsets:from_list(modules_as_apps(App, RemoteModules)),
@@ -312,6 +312,13 @@ process_app(App, Acc, ExistingApps) ->
     case {Missing, Unneeded} of
         {[], []} -> Acc;
         _ -> [{App, Missing, Unneeded} | Acc]
+    end.
+
+known_apps(App) ->
+    _ = application:load(App),
+    case application:get_env(App, 'known_apps') of
+        {ok, List} -> List;
+        _Else -> []
     end.
 
 -spec remote_calls(atom()) -> [atom()].
