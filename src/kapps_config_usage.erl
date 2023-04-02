@@ -381,6 +381,9 @@ guess_type('set_integer', _) -> <<"integer">>;
 guess_type('set_json', _) -> <<"object">>;
 guess_type('set_node', Default) -> guess_type_by_default(Default);
 guess_type('set_string', _) -> <<"string">>;
+guess_type('set_list_string', _) -> [<<"string">>];
+guess_type('set_list_string_append', _) -> [<<"string">>];
+guess_type('set_list_string_remove', _) -> [<<"string">>];
 guess_type('update_default', Default) -> guess_type_by_default(Default).
 
 guess_type_by_default('undefined') -> 'undefined';
