@@ -249,13 +249,13 @@ schema_to_doc(<<Schema/binary>>, DocName, AppName) ->
     schema_to_doc(kz_ast_util:load_ref_schema(Schema), DocName, AppName);
 schema_to_doc(SchemaJObj, DocName, <<AppName/binary>>) ->
     schema_to_doc(SchemaJObj, DocName, kz_term:to_atom(AppName, 'true'));
+schema_to_doc('undefined', _DocName, _App) ->
+    ?LOG_DEBUG("no schema to process for doc ~s in ~s~n", [_DocName, _App]);
 schema_to_doc(SchemaJObj, DocName, App) ->
     DocFile = doc_file(DocName, App),
 
     {'ok', DocContents} = file:read_file(DocFile),
-    case SchemaJObj =/= 'undefined'
-        andalso binary:split(DocContents, <<?SCHEMA_SECTION/binary, "\n">>)
-    of
+    case binary:split(DocContents, <<?SCHEMA_SECTION/binary, "\n">>) of
         [Before, After] ->
             Data = [Before, kz_ast_util:schema_to_table(SchemaJObj, App), After],
             'ok' = file:write_file(DocFile, Data);

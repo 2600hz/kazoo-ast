@@ -525,9 +525,23 @@ schema_type(Settings, <<"string">>) ->
         L when is_list(L) -> schema_enum_type(L);
         _ -> schema_string_type(Settings)
     end;
+schema_type(Settings, <<"integer">>) ->
+    schema_integer_type(Settings);
 schema_type(Settings, Types) when is_list(Types) ->
     kz_binary:join([schema_type(Settings, Type) || Type <- Types], <<" | ">>);
-schema_type(_Settings, Type) -> <<Type/binary, "()">>.
+schema_type(_Settings, Type) ->
+    <<Type/binary, "()">>.
+
+schema_integer_type(Settings) ->
+    schema_integer_type(get_minimum(Settings), get_maximum(Settings)).
+
+schema_integer_type('undefined', 'undefined') -> <<"integer()">>;
+schema_integer_type(Min, 'undefined') ->
+    <<"integer(", (kz_term:to_binary(Min))/binary, "..)">>;
+schema_integer_type('undefined', Max) ->
+    <<"integer(..", (kz_term:to_binary(Max))/binary, ")">>;
+schema_integer_type(Min, Max) ->
+    <<"integer(", (kz_term:to_binary(Min))/binary, "..", (kz_term:to_binary(Max))/binary, ")">>.
 
 maybe_schema_type_from_enum(Settings) ->
     case kz_json:get_list_value(<<"enum">>, Settings) of
@@ -784,3 +798,9 @@ get_properties(Schema) ->
 
 get_pattern_properties(Schema) ->
     kz_json:get_json_value(<<"patternProperties">>, Schema, kz_json:new()).
+
+get_minimum(Schema) ->
+    kz_json:get_integer_value(<<"minimum">>, Schema).
+
+get_maximum(Schema) ->
+    kz_json:get_integer_value(<<"maximum">>, Schema).

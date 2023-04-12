@@ -22,7 +22,7 @@
 build_accessors() ->
     ?LOG_DEBUG("building accessors: "),
     'ok' = filelib:fold_files(kz_term:to_list(kz_ast_util:schema_path(<<>>))
-                             ,"^[a-z_]+\\.json$"
+                             ,"^[a-z_.]+\\.json$"
                              ,'false'
                              ,fun build_accessor/2
                              ,'ok'
@@ -38,10 +38,14 @@ build_accessor(SchemaPath, 'ok') ->
     ?LOG_DEBUG("."),
     {'ok', SchemaJObj} = kz_json_schema:fload(SchemaPath),
     SchemaId = kz_doc:id(SchemaJObj),
+    build_accessor_from_schema(SchemaJObj, SchemaId).
 
+build_accessor_from_schema(_SchemaJObj, <<"system_config.", _/binary>>) -> 'ok';
+build_accessor_from_schema(_SchemaJObj, <<"account_config.", _/binary>>) -> 'ok';
+build_accessor_from_schema(_SchemaJObj, <<"callflows.", _/binary>>) -> 'ok';
+build_accessor_from_schema(SchemaJObj, SchemaId) ->
     BaseModule = base_module(SchemaId),
 
-    %% io:format(user, "building ~s~n", [SchemaPath]),
     case build_schema_accessors(SchemaJObj) of
         'undefined' -> 'ok';
         {Exports, Accessors} ->
@@ -76,17 +80,13 @@ build_schema_accessors_fold_fun(SchemaJObj, ParentProperty) ->
     end.
 
 build_schema_accessor(<<"properties">>, Properties, _SchemaJObj, Acc, ParentProperty) ->
-    %% io:format(user, "building properties~n", []),
     kz_json:foldl(from_properties(ParentProperty), Acc, Properties);
 build_schema_accessor(<<"patternProperties">>, PatternProperties, SchemaJObj, Acc, ParentProperty) ->
-    %% io:format(user, "building patternProperties~n", []),
     build_from_pattern(PatternProperties, SchemaJObj, Acc, ParentProperty);
 build_schema_accessor(<<"$ref">>, Reference, SchemaJObj, Acc, ParentProperty) ->
-    %% io:format(user, "building reference ~s~n", [Reference]),
     RefSchema = json_ref_schema(SchemaJObj, Reference),
     build_schema_accessors(RefSchema, Acc, ParentProperty);
 build_schema_accessor(<<"allOf">>, Schemas, _SchemaJObj, Acc, ParentProperty) ->
-    %% io:format(user, "building allOf~n", []),
     lists:foldl(from_allof(ParentProperty), Acc, Schemas);
 build_schema_accessor(_Key, _Value, _SchemaJObj, Acc, _ParentProperty) -> Acc.
 
@@ -140,7 +140,7 @@ build_from_pattern(PatternProperties, Acc, ParentProperty) ->
 
 save_module(Id, FileContents) ->
     SrcDir = code:lib_dir('kazoo_documents', 'src'),
-    Filename = filename:join([SrcDir, <<"kzd_", Id/binary, ".erl.src">>]),
+    Filename = filename:join([SrcDir, <<"kzd_", (clean_name(Id))/binary, ".erl.src">>]),
     'ok' = file:write_file(Filename, FileContents).
 
 accessor_from_pattern(<<"^_", _/binary>>, _Properties, Acc) -> Acc;
@@ -418,7 +418,7 @@ clean_name([]) -> [];
 clean_name([_|_]=Names) ->
     [clean_name(Name) || Name <- Names];
 clean_name(Name) ->
-    binary:replace(Name, <<"-">>, <<"_">>, ['global']).
+    binary:replace(Name, [<<".">>, <<"-">>], <<"_">>, ['global']).
 
 base_exports() ->
     ["\n"
