@@ -41,8 +41,19 @@ to_schemas() ->
     kz_json:foreach(fun update_schema/1, process()).
 
 -spec to_schemas(atom()) -> 'ok'.
-to_schemas(App) ->
-    kz_json:foreach(fun update_schema/1, process_app(App)).
+to_schemas(App) when is_atom(App) ->
+    kz_json:foreach(fun update_schema/1, process_app(App));
+to_schemas(Modules) ->
+    _ = [to_schema(Module) || Module <- Modules,
+                              is_kapi_module(Module)
+        ],
+    'ok'.
+
+is_kapi_module(Module) ->
+    case filename:basename(Module, ".erl") of
+        [$k, $a, $p, $i, $_ | _] -> 'true';
+        _ -> 'false'
+    end.
 
 -spec to_schema(module()) -> 'ok'.
 to_schema(KapiModule) ->
