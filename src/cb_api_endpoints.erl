@@ -214,10 +214,6 @@ ref_doc_header(EndpointName) ->
     ].
 
 -spec maybe_add_schema(kz_term:ne_binary()) -> iolist().
-maybe_add_schema(<<"applications">>) ->
-    %% cb_applications uses application schema
-    %% kazoo-cpaas is lready have a schema named applications
-    maybe_add_schema(<<"application">>);
 maybe_add_schema(EndpointName) ->
     case kz_ast_util:load_ref_schema(EndpointName) of
         'undefined' -> [?SCHEMA_SECTION, "\n\n"];
