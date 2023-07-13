@@ -761,7 +761,7 @@ format_path_token(Token = <<Prefix:1/binary, _/binary>>)
     end;
 format_path_token(BadToken) ->
     Fmt = "Please pick a good allowed_methods/N variable name: '~s' is too short.\n",
-    ?LOG_ERROR(Fmt, [BadToken]),
+    ?SUP_LOG_ERROR(Fmt, [BadToken]),
     halt(1).
 
 camel_to_snake(Bin) ->
@@ -1190,6 +1190,7 @@ def_path_param(OasVersion, <<"{ACCOUNT_ID}">>=P) -> generic_id_path_param(P, Oas
 def_path_param(OasVersion, <<"{ADDRESS_ID}">>=P) -> generic_id_path_param(P, OasVersion);
 def_path_param(OasVersion, <<"{ALERT_ID}">>=P) -> generic_id_path_param(P, OasVersion);
 def_path_param(OasVersion, <<"{APP_ID}">>=P) -> generic_id_path_param(P, OasVersion);
+def_path_param(OasVersion, <<"{APP_TYPE}">>=P) -> generic_id_path_param(P, OasVersion);
 def_path_param(OasVersion, <<"{AUTH_TOKEN}">>=P) -> generic_id_path_param(P, OasVersion);
 def_path_param(OasVersion, <<"{BLACKLIST_ID}">>=P) -> generic_id_path_param(P, OasVersion);
 def_path_param(OasVersion, <<"{C2C_ID}">>=P) -> generic_id_path_param(P, OasVersion);
@@ -1346,9 +1347,9 @@ def_path_param(OasVersion, Param) ->
         <<"}DI_", _/binary>> ->
             generic_id_path_param(Param, OasVersion);
         _Else ->
-            ?LOG_ERROR("~s/" ?FILE ":~p: No Swagger definition of path parameter '~s'\n"
-                      ,[code:lib_dir('ast'), ?LINE, Param]
-                      ),
+            ?SUP_LOG_ERROR("~s/" ?FILE ":~p: No Swagger definition of path parameter '~s'\n"
+                          ,[code:lib_dir('ast'), ?LINE, Param]
+                          ),
             halt(1)
     end.
 
