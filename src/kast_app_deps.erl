@@ -317,7 +317,7 @@ process_app(App, Acc, ExistingApps) ->
 known_apps(App) ->
     _ = application:load(App),
     case application:get_env(App, 'known_apps') of
-        {ok, List} -> List;
+        {'ok', List} -> List;
         _Else -> []
     end.
 
