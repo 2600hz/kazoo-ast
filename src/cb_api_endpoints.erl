@@ -26,7 +26,7 @@
         ,schema_to_doc/2, schema_to_doc/3
         ,ref_tables_to_doc/1
 
-        ,generate_oas_json/2
+        ,generate_oas_json/3
         ,read_swagger_json/1
         ,format_as_path_centric/1
         ,to_swagger_paths/2
@@ -54,23 +54,23 @@
        ,filename:join([?REF_PATH(App), <<Module/binary,".md">>])
        ).
 
--define(SWAGGER_2_JSON_FILE
-       ,filename:join([code:priv_dir('crossbar'), "api", "swagger.json"])
+-define(SWAGGER_2_JSON_FILE(App)
+       ,filename:join([code:priv_dir(App), "api", "swagger.json"])
        ).
 
 -define(OAS3_YML_FILENAME, <<"openapi.yml">>).
--define(OAS3_YML_FILE
-       ,filename:join([code:priv_dir('crossbar'), "oas3", "openapi.yml"])
+-define(OAS3_YML_FILE(App)
+       ,filename:join([code:priv_dir(App), "oas3", "openapi.yml"])
        ).
 
 -define(OAS3_SCHEMAS_FILENAME, <<"oas3-schemas.yml">>).
--define(OAS3_SCHEMAS_FILE
-       ,filename:join([code:priv_dir('crossbar'), "oas3", ?OAS3_SCHEMAS_FILENAME])
+-define(OAS3_SCHEMAS_FILE(App)
+       ,filename:join([code:priv_dir(App), "oas3", ?OAS3_SCHEMAS_FILENAME])
        ).
 
 -define(OAS3_PARAMETERS_FILENAME, <<"oas3-parameters.yml">>).
--define(OAS3_PARAMETERS_FILE
-       ,filename:join([code:priv_dir('crossbar'), "oas3", ?OAS3_PARAMETERS_FILENAME])
+-define(OAS3_PARAMETERS_FILE(App)
+       ,filename:join([code:priv_dir(App), "oas3", ?OAS3_PARAMETERS_FILENAME])
        ).
 
 -define(ACCOUNTS_PREFIX, "accounts/{ACCOUNT_ID}").
@@ -161,7 +161,9 @@ methods_to_section('undefined', _Path, Acc) ->
     ?LOG_DEBUG("skipping path ~p~n", [_Path]),
     Acc;
 methods_to_section(ModuleName, {Path, Methods}, Acc) ->
-    API = kz_term:iolist_join($/, [?CURRENT_VERSION, ModuleName | format_path_tokens(Path)]),
+    API = kz_term:iolist_join($/, [?CURRENT_VERSION, ModuleName
+                                  | format_path_tokens(ModuleName, Path)
+                                  ]),
     APIPath = iolist_to_binary([$/, API]),
     lists:foldl(fun(Method, Acc1) ->
                         method_to_section(Method, Acc1, APIPath)
@@ -302,40 +304,52 @@ ref_table_to_doc(RefTable) ->
 
 -spec to_swagger_file() -> 'ok'.
 to_swagger_file() ->
-    OASs = generate_oas_json(get(), <<"oas_two_and_three">>),
-    write_swagger_file(OASs, <<"oas_two_and_three">>).
+    Config = lists:foldl(fun get_app/2, [], kz_ast_util:kazoo_apps()),
+    OASs = generate_oas_json('crossbar', Config, <<"oas_two_and_three">>),
+    write_swagger_file('crossbar', OASs, <<"oas_two_and_three">>).
 
 -spec app_to_swagger_file(atom()) -> 'ok'.
 app_to_swagger_file(App) ->
-    OASs = generate_oas_json(get_app(App), <<"oas_two_and_three">>),
-    write_swagger_file(OASs, <<"oas_two_and_three">>).
+    AppForSaving = maybe_private(App),
+    OASs = generate_oas_json(AppForSaving, get_app(App), <<"oas_two_and_three">>),
+    write_swagger_file(AppForSaving, OASs, <<"oas_two_and_three">>).
 
 -spec to_oas3_file() -> 'ok'.
 to_oas3_file() ->
-    OAS3 = generate_oas_json(get(), <<"oas3">>),
-    write_swagger_file(OAS3, <<"oas3">>).
+    Config = lists:foldl(fun get_app/2, [], kz_ast_util:kazoo_apps()),
+    OAS3 = generate_oas_json('crossbar', Config, <<"oas3">>),
+    write_swagger_file('crossbar', OAS3, <<"oas3">>).
 
 -spec app_to_oas3_file(atom()) -> 'ok'.
 app_to_oas3_file(App) ->
-    OAS3 = generate_oas_json(get_app(App), <<"oas3">>),
-    write_swagger_file(OAS3, <<"oas3">>).
+    AppForSaving = maybe_private(App),
+    OAS3 = generate_oas_json(AppForSaving, get_app(App), <<"oas3">>),
+    write_swagger_file(AppForSaving, OAS3, <<"oas3">>).
 
--spec generate_oas_json(callback_configs(), kz_term:ne_binary()) -> kz_term:proplist().
-generate_oas_json(Callbacks, OasVersion) ->
+maybe_private(App) ->
+    _ = application:load(App),
+    case application:get_env(App, 'schemas_to_priv') of
+        {'ok', 'true'} -> App;
+        _ -> 'crossbar'
+    end.
+
+-spec generate_oas_json(atom(), callback_configs(), kz_term:ne_binary()) -> kz_term:proplist().
+generate_oas_json(_App, [], _OasVersion) -> [];
+generate_oas_json(App, Callbacks, OasVersion) ->
     Paths = format_as_path_centric(Callbacks),
     ToParameter = lists:flatten([kz_json:get_keys(kz_json:get_json_value(<<"paths">>, EndpointMeta))
                                  || {_EndpointName, EndpointMeta} <- kz_json:to_proplist(Paths)
                                 ]),
     Parameters = to_swagger_parameters(ToParameter, OasVersion),
-    generate_oas_paths_json(Paths, OasVersion, Parameters).
+    generate_oas_paths_json(App, Paths, OasVersion, Parameters).
 
--spec generate_oas_paths_json(kz_json:object(), kz_term:ne_binary(), kz_json:object()) ->
+-spec generate_oas_paths_json(atom(), kz_json:object(), kz_term:ne_binary(), kz_json:object()) ->
           kz_term:proplist().
-generate_oas_paths_json(Paths, <<"oas_two_and_three">>, Parameters) ->
-    generate_oas_paths_json(Paths, <<"oas3">>, Parameters)
-        ++ generate_oas_paths_json(Paths, <<"swagger2">>, Parameters);
-generate_oas_paths_json(Paths, <<"swagger2">> = OasVersion, Parameters) ->
-    BaseSwagger = read_swagger_json(?SWAGGER_2_JSON_FILE),
+generate_oas_paths_json(App, Paths, <<"oas_two_and_three">>, Parameters) ->
+    generate_oas_paths_json(App, Paths, <<"oas3">>, Parameters)
+        ++ generate_oas_paths_json(App, Paths, <<"swagger2">>, Parameters);
+generate_oas_paths_json(App, Paths, <<"swagger2">> = OasVersion, Parameters) ->
+    BaseSwagger = read_swagger_json(?SWAGGER_2_JSON_FILE(App)),
     BasePaths = kz_json:get_value(<<"paths">>, BaseSwagger),
 
     [{<<"swagger2">>
@@ -354,8 +368,8 @@ generate_oas_paths_json(Paths, <<"swagger2">> = OasVersion, Parameters) ->
                         )
      }
     ];
-generate_oas_paths_json(Paths, <<"oas3">> = OasVersion, Parameters) ->
-    BaseOas = kz_json:from_map(read_oas3_yaml(?OAS3_YML_FILE)),
+generate_oas_paths_json(App, Paths, <<"oas3">> = OasVersion, Parameters) ->
+    BaseOas = kz_json:from_map(read_oas3_yaml(?OAS3_YML_FILE(App))),
     OasPaths = to_oas3_paths_object(Paths),
     Schemas = to_swagger_definitions(OasVersion),
 
@@ -379,48 +393,49 @@ generate_oas_paths_json(Paths, <<"oas3">> = OasVersion, Parameters) ->
      }
     ].
 
-%% -spec create_oas3_component_refs(kz_term:ne_binary(), kz_term:ne_binary(), kz_term:ne_binary(), kz_json:object(), kz_json:json_proplist()) -> kz_json:json_proplist().
-%% create_oas3_component_refs(ComponentName, Filename, ParamName, _ParamJObj, Acc) ->
-%%     [{[<<"components">>, ComponentName, ParamName, <<"$ref">>]
-%%      ,<<Filename/binary, "#/", ParamName/binary>>
-%%      }
-%%      | Acc
-%%     ].
-
--spec write_swagger_file(kz_term:proplist(), kz_term:ne_binary()) -> 'ok'.
-write_swagger_file(Props, <<"oas_two_and_three">>) ->
-    write_swagger_file(Props, <<"swagger2">>),
-    write_swagger_file(Props, <<"oas3">>);
-write_swagger_file(Props, <<"swagger2">>) ->
-    ?LOG_DEBUG("~nsaving swagger 2.0 to file ~s~n", [?SWAGGER_2_JSON_FILE]),
-    file:write_file(?SWAGGER_2_JSON_FILE, kz_json:encode(props:get_value(<<"swagger2">>, Props)));
-write_swagger_file(Props, <<"oas3">>) ->
+-spec write_swagger_file(atom(), kz_term:proplist(), kz_term:ne_binary()) -> 'ok'.
+write_swagger_file(_App, [], _Format) -> 'ok';
+write_swagger_file(App, Props, <<"oas_two_and_three">>) ->
+    write_swagger_file(App, Props, <<"swagger2">>),
+    write_swagger_file(App, Props, <<"oas3">>);
+write_swagger_file(App, Props, <<"swagger2">>) ->
+    ?LOG_DEBUG("~nsaving swagger 2.0 to file ~s~n", [?SWAGGER_2_JSON_FILE(App)]),
+    file:write_file(?SWAGGER_2_JSON_FILE(App)
+                   ,kz_json:encode(props:get_value(<<"swagger2">>, Props))
+                   );
+write_swagger_file(App, Props, <<"oas3">>) ->
     YmlEncodeOption = #{sort_keys => 'true'
                        ,key_string_style => 'single_quote'
                         %% ,string_style => 'double_qoute'
                        },
-    ?LOG_DEBUG("~nsaving OpenAPI 3 Parameters to file ~s~n", [?OAS3_PARAMETERS_FILE]),
+    ?LOG_DEBUG("~nsaving OpenAPI 3 Parameters to file ~s~n", [?OAS3_PARAMETERS_FILE(App)]),
     Parameters = props:get_value([<<"oas3">>, <<"parameters">>], Props),
-    'ok' = file:write_file(?OAS3_PARAMETERS_FILE, kz_yaml:encode(Parameters, YmlEncodeOption)),
+    'ok' = filelib:ensure_dir(?OAS3_PARAMETERS_FILE(App)),
+    'ok' = file:write_file(?OAS3_PARAMETERS_FILE(App), kz_yaml:encode(Parameters, YmlEncodeOption)),
 
-    ?LOG_DEBUG("saving OpenAPI 3 Schemas to file ~s~n", [?OAS3_SCHEMAS_FILE]),
+    ?LOG_DEBUG("saving OpenAPI 3 Schemas to file ~s~n", [?OAS3_SCHEMAS_FILE(App)]),
     Schemas = props:get_value([<<"oas3">>, <<"definitions">>], Props),
-    'ok' = file:write_file(?OAS3_SCHEMAS_FILE, kz_yaml:encode(Schemas, YmlEncodeOption)),
+    'ok' = filelib:ensure_dir(?OAS3_SCHEMAS_FILE(App)),
+    'ok' = file:write_file(?OAS3_SCHEMAS_FILE(App), kz_yaml:encode(Schemas, YmlEncodeOption)),
 
     ?LOG_DEBUG("saving OpenAPI 3 Paths to their files~n", []),
-    'ok' = maps:fold(fun write_oas3_path/3, 'ok', props:get_value([<<"oas3">>, <<"paths">>], Props)),
+    App = maps:fold(fun write_oas3_path/3, App, props:get_value([<<"oas3">>, <<"paths">>], Props)),
 
-    ?LOG_DEBUG("saving OpenAPI 3 to file ~s~n", [?OAS3_YML_FILE]),
+    ?LOG_DEBUG("saving OpenAPI 3 to file ~s~n", [?OAS3_YML_FILE(App)]),
     OpenAPI = props:get_value([<<"oas3">>, <<"openapi">>], Props),
-    'ok' = file:write_file(?OAS3_YML_FILE
+    'ok' = filelib:ensure_dir(?OAS3_YML_FILE(App)),
+    'ok' = file:write_file(?OAS3_YML_FILE(App)
                           ,kz_yaml:encode(OpenAPI, YmlEncodeOption#{string_style => 'single_quote'})
                           ).
 
--spec write_oas3_path(kz_term:ne_binary(), map(), 'ok') -> 'ok'.
-write_oas3_path(Endpoint, Meta, 'ok') ->
-    'ok' = file:write_file(filename:join([code:priv_dir('crossbar'), "oas3/paths", <<Endpoint/binary, ".yml">>])
+-spec write_oas3_path(kz_term:ne_binary(), map(), atom()) -> 'ok'.
+write_oas3_path(Endpoint, Meta, App) ->
+    Filename = filename:join([code:priv_dir(App), "oas3/paths", <<Endpoint/binary, ".yml">>]),
+    'ok' = filelib:ensure_dir(Filename),
+    'ok' = file:write_file(Filename
                           ,kz_yaml:encode(Meta, #{sort_keys => 'true'})
-                          ).
+                          ),
+    App.
 
 -spec create_oas3_path_refs(kz_term:ne_binary(), map(), any()) -> kz_json:json_proplist().
 create_oas3_path_refs(EndpointName, #{<<"paths">> := PathItems}, Acc) ->
@@ -742,14 +757,19 @@ maybe_include_schema(Acc, EndpointName) ->
         'true' -> kz_json:set_value([EndpointName, <<"schema">>], EndpointName, Acc)
     end.
 
-format_path_tokens(<<"/">>) -> [];
-format_path_tokens(<<Token/binary>>) ->
-    [format_path_token(Token)];
-format_path_tokens(Tokens) ->
-    [format_path_token(Token) || Token <- Tokens, Token =/= <<"/">>].
+format_path_tokens(_Mod, <<"/">>) -> [];
+format_path_tokens(_Mod, <<>>) -> [];
+format_path_tokens(Module, <<Token/binary>>) ->
+    [format_path_token(Module, Token)];
+format_path_tokens(Module, Tokens) ->
+    [format_path_token(Module, Token) || Token <- Tokens,
+                                         Token =/= <<"/">>,
+                                         Token =/= <<>>,
+                                         Token =/= <<"_">>
+    ].
 
-format_path_token(<<"_", Rest/binary>>) -> format_path_token(Rest);
-format_path_token(Token = <<Prefix:1/binary, _/binary>>)
+format_path_token(Module, <<"_", Rest/binary>>) -> format_path_token(Module, Rest);
+format_path_token(_Module, Token = <<Prefix:1/binary, _/binary>>)
   when byte_size(Token) >= 3 ->
     case is_all_upper(Token) of
         'true' -> brace_token(Token);
@@ -759,10 +779,10 @@ format_path_token(Token = <<Prefix:1/binary, _/binary>>)
                 'false' -> Token
             end
     end;
-format_path_token(BadToken) ->
-    Fmt = "Please pick a good allowed_methods/N variable name: '~s' is too short.\n",
-    ?SUP_LOG_ERROR(Fmt, [BadToken]),
-    halt(1).
+format_path_token(Module, BadToken) ->
+    Fmt = "Please pick a good allowed_methods/N variable name in ~s: '~p' is too short.\n",
+    ?SUP_LOG_ERROR(Fmt, [Module, BadToken]),
+    throw({'error', Module, BadToken}).
 
 camel_to_snake(Bin) ->
     Options = ['global', {'return', 'binary'}],
@@ -794,7 +814,7 @@ module_version(Module) ->
     end.
 
 swagger_api_path(Path, ModuleName) ->
-    API = kz_term:iolist_join($/, [ModuleName | format_path_tokens(Path)]),
+    API = kz_term:iolist_join($/, [ModuleName | format_path_tokens(ModuleName, Path)]),
     iolist_to_binary([$/, API]).
 
 -spec path_name(atom()) -> kz_term:api_ne_binary().
@@ -828,7 +848,7 @@ path_name(Module) ->
 -type callback() :: module().
 -spec get() -> callback_configs().
 get() ->
-    Apps = ['crossbar', 'acdc', 'frontier', 'cccp'],
+    Apps = kz_ast_util:kazoo_apps(), %['crossbar', 'acdc', 'frontier', 'cccp'],
     lists:foldl(fun get_app/2, [], Apps).
 
 -spec get_app(atom()) -> callback_configs().
@@ -955,7 +975,7 @@ binary_match_to_path(Matches) ->
 binary_to_path(?BINARY_STRING(Name)) ->
     Name;
 binary_to_path(?BINARY_VAR(VarName)) ->
-    format_path_token(kz_term:to_binary(VarName)).
+    format_path_token(<<>>, kz_term:to_binary(VarName)).
 
 find_methods(ClauseBody) ->
     find_methods(ClauseBody, []).
@@ -1340,6 +1360,10 @@ def_path_param(OasVersion, <<"{NUMBER}">> = P) ->
 def_path_param(OasVersion, <<"{AUDIT_ID}">> = P) ->
     generic_id_path_param(P, OasVersion);
 def_path_param(OasVersion, <<"{SOURCE_SERVICE}">> = P) ->
+    base_path_param(P, OasVersion);
+def_path_param(OasVersion, <<"{DATE_STRING}">> = P) ->
+    base_path_param(P, OasVersion);
+def_path_param(OasVersion, <<"{TOKEN}">> = P) ->
     base_path_param(P, OasVersion);
 
 def_path_param(OasVersion, Param) ->

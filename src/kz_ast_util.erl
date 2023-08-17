@@ -26,7 +26,8 @@
         ,schema_to_table/1, schema_to_table/2
         ,load_ref_schema/1
 
-        ,project_apps/0, app_modules/1
+        ,project_apps/0, kazoo_apps/0, core_apps/0
+        ,app_modules/1
         ]).
 
 -include_lib("ast/include/kz_ast.hrl").
@@ -224,6 +225,16 @@ skel_schema() ->
                       ,{<<"properties">>, kz_json:new()}
                       ,{<<"type">>, <<"object">>}
                       ]).
+
+-spec kazoo_apps() -> [atom()].
+kazoo_apps() ->
+    Apps = siblings_of('crossbar'),
+    lists:foldl(fun add_if_loadable/2, [], Apps).
+
+-spec core_apps() -> [atom()].
+core_apps() ->
+    Core = siblings_of('kazoo_apps'),
+    lists:foldl(fun add_if_loadable/2, [], Core).
 
 -spec project_apps() -> [atom()].
 project_apps() ->
