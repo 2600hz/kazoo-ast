@@ -27,6 +27,7 @@
         ,load_ref_schema/1
 
         ,project_apps/0, kazoo_apps/0, core_apps/0
+        ,public_kazoo_apps/0, private_kazoo_apps/0
         ,app_modules/1
         ]).
 
@@ -230,6 +231,37 @@ skel_schema() ->
 kazoo_apps() ->
     Apps = siblings_of('crossbar'),
     lists:foldl(fun add_if_loadable/2, [], Apps).
+
+-spec public_kazoo_apps() -> [atom()].
+public_kazoo_apps() ->
+    Apps = siblings_of('crossbar'),
+    lists:foldl(fun add_if_public/2, [], Apps).
+
+-spec private_kazoo_apps() -> [atom()].
+private_kazoo_apps() ->
+    Apps = siblings_of('crossbar'),
+    lists:foldl(fun add_if_private/2, [], Apps).
+
+-spec is_private_app(atom()) -> boolean().
+is_private_app(App) ->
+    _ = application:load(App),
+    case application:get_env(App, 'schemas_to_priv') of
+        {'ok', 'true'} -> 'true';
+        _ -> 'false'
+    end.
+
+add_if_public(App, Acc) ->
+    case is_private_app(App) of
+        'true' -> Acc;
+        'false' -> add_if_loadable(App, Acc)
+    end.
+
+
+add_if_private(App, Acc) ->
+    case is_private_app(App) of
+        'true' -> add_if_loadable(App, Acc);
+        'false' -> Acc
+    end.
 
 -spec core_apps() -> [atom()].
 core_apps() ->

@@ -304,9 +304,11 @@ ref_table_to_doc(RefTable) ->
 
 -spec to_swagger_file() -> 'ok'.
 to_swagger_file() ->
-    Config = lists:foldl(fun get_app/2, [], kz_ast_util:kazoo_apps()),
-    OASs = generate_oas_json('crossbar', Config, <<"oas_two_and_three">>),
-    write_swagger_file('crossbar', OASs, <<"oas_two_and_three">>).
+    PublicConfig = lists:foldl(fun get_app/2, [], kz_ast_util:public_kazoo_apps()),
+    OASs = generate_oas_json('crossbar', PublicConfig, <<"oas_two_and_three">>),
+    write_swagger_file('crossbar', OASs, <<"oas_two_and_three">>),
+
+    lists:foreach(fun app_to_swagger_file/1, kz_ast_util:private_kazoo_apps()).
 
 -spec app_to_swagger_file(atom()) -> 'ok'.
 app_to_swagger_file(App) ->
@@ -316,9 +318,11 @@ app_to_swagger_file(App) ->
 
 -spec to_oas3_file() -> 'ok'.
 to_oas3_file() ->
-    Config = lists:foldl(fun get_app/2, [], kz_ast_util:kazoo_apps()),
+    Config = lists:foldl(fun get_app/2, [], kz_ast_util:public_kazoo_apps()),
     OAS3 = generate_oas_json('crossbar', Config, <<"oas3">>),
-    write_swagger_file('crossbar', OAS3, <<"oas3">>).
+    write_swagger_file('crossbar', OAS3, <<"oas3">>),
+
+    lists:foreach(fun app_to_oas3_file/1/1, kz_ast_util:private_kazoo_apps()).
 
 -spec app_to_oas3_file(atom()) -> 'ok'.
 app_to_oas3_file(App) ->
