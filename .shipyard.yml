@@ -1,6 +1,6 @@
 ---
 name: kazoo-application-ast
-base_branch: 'origin/master'
+base_branch: origin/5.4
 metapackage:
   - name: meta-kazoo-applications
     type: related
@@ -19,3 +19,26 @@ package:
     group: Productivity/Telephony
     url: https://2600hz.com/
     vendor: 2600Hz
+  rockylinux8:
+    name: kazoo-application-crossbar
+    summary: 'Kazoo core application'
+    description: |
+      KAZOO REST API server
+    app_name: crossbar
+    license: 'MPL 2.0'
+    group: Productivity/Telephony
+    url: 'https://2600hz.org/'
+    vendor: 2600Hz
+    dist: .el8
+  rockylinux9:
+    name: kazoo-application-crossbar
+    summary: 'Kazoo core application'
+    description: |
+      KAZOO REST API server
+    app_name: crossbar
+    license: 'MPL 2.0'
+    group: Productivity/Telephony
+    url: 'https://2600hz.org/'
+    vendor: 2600Hz
+    dist: .el9
+
