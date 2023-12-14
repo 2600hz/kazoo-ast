@@ -306,13 +306,35 @@ process_app(App, Acc, ExistingApps) ->
 
     ?LOG_DEBUG(" known ~p~nremote apps: ~p~n", [KnownApps, RemoteApps]),
 
-    Missing = ordsets:subtract(RemoteApps, KnownApps),
-    Unneeded = ordsets:subtract(KnownApps, RemoteApps),
+    Missing = [RApp || RApp <- ordsets:subtract(RemoteApps, KnownApps),
+                       dont_touch_kapps(App, RApp, 'missing')
+              ],
+    Unneeded = [RApp || RApp <- ordsets:subtract(KnownApps, RemoteApps),
+                        dont_touch_kapps(App, RApp, 'unneeded')
+               ],
 
     case {Missing, Unneeded} of
         {[], []} -> Acc;
         _ -> [{App, Missing, Unneeded} | Acc]
     end.
+
+is_kapp(App) ->
+    _ = application:load(App),
+    kz_application:is_kapp(App).
+
+dont_touch_kapps(App, RemoteApp, Type) ->
+    case is_kapp(RemoteApp) of
+        'true' ->
+            log_kapps_discrepancies(App, RemoteApp, Type),
+            'false';
+        'false' ->
+            'true'
+    end.
+
+log_kapps_discrepancies(App, RemoteApp, 'missing') ->
+    ?SUP_LOG_DEBUG("~s.app.src is missing ~s from applications list, you may want to add it", [App, RemoteApp]);
+log_kapps_discrepancies(App, RemoteApp, 'unneeded') ->
+    ?SUP_LOG_DEBUG("~s.app.src may not need ~s in its applications list, you may want to remove it", [App, RemoteApp]).
 
 known_apps(App) ->
     _ = application:load(App),
