@@ -749,8 +749,12 @@ maybe_sub_properties_to_row(SchemaJObj, 'undefined', Names, Settings, Acc) ->
         'undefined' -> Acc;
         RefId ->
             {'ok', RefSchema} = kz_json_schema:fload(RefId),
-            ?LOG_DEBUG("$ref ~p type ~p", [RefId, get_type(RefSchema)]),
-            maybe_sub_properties_to_row(SchemaJObj, get_type(RefSchema), Names, Settings, Acc)
+            case get_type(RefSchema) of
+                undefined -> Acc;
+                Type ->
+                    ?LOG_DEBUG("$ref ~p type ~p", [RefId, Type]),
+                    maybe_sub_properties_to_row(SchemaJObj, Type, Names, Settings, Acc)
+            end
     end;
 maybe_sub_properties_to_row(_SchemaJObj, _Type, _Keys, _Settings, Acc) ->
     ?LOG_DEBUG("ignoring type ~p for ~p", [_Type, _Keys]),
