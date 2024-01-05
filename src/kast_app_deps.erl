@@ -372,12 +372,12 @@ remote_calls_from_module(Module, Acc, {M, AST}) ->
     try remote_calls_from_functions(Fs, Acc) of
         Modules -> ?LOG_DEBUG("  ~p~n", [Module]), lists:delete(M, Modules)
     catch
-        ?STACKTRACE(_E, R, ST)
-        ?LOG_DEBUG("process module '~s' failed: ~s: ~p~n", [Module, _E, R]),
-        _ = [?LOG_DEBUG("st: ~p~n", [S]) || S <- ST],
-        ?LOG_DEBUG("~s failed: ~s ~r~n~p~n", [Module, _E, R, ST]),
-        throw(R)
-        end.
+        _E:R:ST ->
+            ?LOG_DEBUG("process module '~s' failed: ~s: ~p~n", [Module, _E, R]),
+            _ = [?LOG_DEBUG("st: ~p~n", [S]) || S <- ST],
+            ?LOG_DEBUG("~s failed: ~s ~r~n~p~n", [Module, _E, R, ST]),
+            throw(R)
+    end.
 
 remote_calls_from_functions(Fs, Acc) ->
     lists:foldl(fun remote_calls_from_function/2
