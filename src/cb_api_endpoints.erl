@@ -322,7 +322,7 @@ to_oas3_file() ->
     OAS3 = generate_oas_json('crossbar', Config, <<"oas3">>),
     write_swagger_file('crossbar', OAS3, <<"oas3">>),
 
-    lists:foreach(fun app_to_oas3_file/1/1, kz_ast_util:private_kazoo_apps()).
+    lists:foreach(fun app_to_oas3_file/1, kz_ast_util:private_kazoo_apps()).
 
 -spec app_to_oas3_file(atom()) -> 'ok'.
 app_to_oas3_file(App) ->
