@@ -344,8 +344,15 @@ generate_oas_json(App, Callbacks, OasVersion) ->
     ToParameter = lists:flatten([kz_json:get_keys(kz_json:get_json_value(<<"paths">>, EndpointMeta))
                                  || {_EndpointName, EndpointMeta} <- kz_json:to_proplist(Paths)
                                 ]),
-    Parameters = to_swagger_parameters(ToParameter, OasVersion),
-    generate_oas_paths_json(App, Paths, OasVersion, Parameters).
+    try to_swagger_parameters(ToParameter, OasVersion) of
+        Parameters ->
+            generate_oas_paths_json(App, Paths, OasVersion, Parameters)
+    catch
+        _E:_R:_ST ->
+            ?SUP_LOG_INFO("failed to build app ~s OAS ~s", [App, OasVersion]),
+            kz_log:log_stacktrace(_ST),
+            []
+    end.
 
 -spec generate_oas_paths_json(atom(), kz_json:object(), kz_term:ne_binary(), kz_json:object()) ->
           kz_term:proplist().
@@ -1378,7 +1385,7 @@ def_path_param(OasVersion, Param) ->
             ?SUP_LOG_ERROR("~s/" ?FILE ":~p: No Swagger definition of path parameter '~s'\n"
                           ,[code:lib_dir('ast'), ?LINE, Param]
                           ),
-            halt(1)
+            exit({'error', Param})
     end.
 
 filters_from_module(Module) ->
