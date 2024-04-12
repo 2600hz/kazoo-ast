@@ -1,5 +1,5 @@
 %%%-----------------------------------------------------------------------------
-%%% @copyright (C) 2015-2023, 2600Hz
+%%% @copyright (C) 2015-2024, 2600Hz
 %%% @doc Provide some utilities to work with AST.
 %%% @author James Aimonetti
 %%% This Source Code Form is subject to the terms of the Mozilla Public
@@ -644,7 +644,7 @@ schema_array_type(Settings) ->
     end.
 
 schema_enum_type(L) ->
-    <<"string('", (kz_binary:join(L, <<"' | '">>))/binary, "')">>.
+    <<"string('", (kz_binary:join(L, <<"' \\| '">>))/binary, "')">>.
 
 schema_string_type(Settings) ->
     case {kz_json:get_integer_value(<<"minLength">>, Settings)
@@ -750,7 +750,7 @@ maybe_sub_properties_to_row(SchemaJObj, 'undefined', Names, Settings, Acc) ->
         RefId ->
             {'ok', RefSchema} = kz_json_schema:fload(RefId),
             case get_type(RefSchema) of
-                undefined -> Acc;
+                'undefined' -> Acc;
                 Type ->
                     ?LOG_DEBUG("$ref ~p type ~p", [RefId, Type]),
                     maybe_sub_properties_to_row(SchemaJObj, Type, Names, Settings, Acc)
