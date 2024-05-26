@@ -4,7 +4,7 @@ base_branch: 'origin/master'
 metapackage:
   - name: meta-kazoo-applications
     type: related
-    branch: 'master'
+    branch: '5.4'
     package: kazoo-application-ast
 base_core: kazoo
 template: kazoo-application.spec.tmpl
