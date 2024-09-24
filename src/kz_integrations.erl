@@ -92,6 +92,7 @@ read_integrations(IntegrationsFile) ->
     end.
 
 write_integrations(File, Integrations) ->
+    io:format("writing integrations to ~s~n", [File]),
     'ok' = filelib:ensure_dir(File),
     Data = io_lib:format("~p.", [maps:to_list(Integrations)]),
     'ok' = file:write_file(File, Data).
