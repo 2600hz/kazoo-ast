@@ -43,6 +43,7 @@ build_accessor(SchemaPath, 'ok') ->
 build_accessor_from_schema(_SchemaJObj, <<"system_config.", _/binary>>) -> 'ok';
 build_accessor_from_schema(_SchemaJObj, <<"account_config.", _/binary>>) -> 'ok';
 build_accessor_from_schema(_SchemaJObj, <<"callflows.", _/binary>>) -> 'ok';
+build_accessor_from_schema(_SchemaJObj, <<"kapi.", _/binary>>) -> 'ok';
 build_accessor_from_schema(SchemaJObj, SchemaId) ->
     BaseModule = base_module(SchemaId),
 
