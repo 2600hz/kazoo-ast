@@ -476,9 +476,12 @@ maybe_description(_Settings, Description) ->
 maybe_description_from_ref(Settings, 'undefined') ->
     maybe_description_from_one_or_any(kz_json:get_first_defined([<<"oneOf">>, <<"anyOf">>], Settings));
 maybe_description_from_ref(_Settings, RefSchemaName) ->
-    ?LOG_INFO("using ref ~s description", [RefSchemaName]),
-    {'ok', RefSchema} = kz_json_schema:fload(RefSchemaName),
-    kz_json:get_ne_binary_value(<<"description">>, RefSchema, <<" ">>).
+    case kz_json_schema:fload(RefSchemaName) of
+        {'ok', RefSchema} ->
+            ?LOG_INFO("using ref ~s description", [RefSchemaName]),
+            kz_json:get_ne_binary_value(<<"description">>, RefSchema, <<" ">>);
+        {'error', 'not_found'} -> <<" ">>
+    end.
 
 maybe_description_from_one_or_any('undefined') ->
     <<" ">>;
