@@ -1,5 +1,5 @@
 %%%-----------------------------------------------------------------------------
-%%% @copyright (C) 2015-2024, 2600Hz
+%%% @copyright (C) 2015-2025, 2600Hz
 %%% @doc Provide some utilities to work with AST.
 %%% @author James Aimonetti
 %%% This Source Code Form is subject to the terms of the Mozilla Public
@@ -194,7 +194,8 @@ schema_path(Base, PrivDir) ->
                        ,<<"couchdb">>
                        ,<<"schemas">>
                        ,Base
-                       ]) of
+                       ])
+    of
         <<"/", _/binary>> = Path -> Path;
         Path -> <<"./", Path/binary>>
     end.
