@@ -1,5 +1,5 @@
 %%%-----------------------------------------------------------------------------
-%%% @copyright (C) 2015-2023, 2600Hz
+%%% @copyright (C) 2015-2025, 2600Hz
 %%% @doc Generate schema for Kazoo AMQP APIs.
 %%% @author James Aimonetti
 %%% This Source Code Form is subject to the terms of the Mozilla Public
@@ -640,6 +640,8 @@ validator_properties(_Fields, {'function', 'store_media_content_v', 1}) ->
     kz_json:from_list([{<<"type">>, <<"string">>}]);
 validator_properties(_Fields, {'kz_api', 'event_name', 1}) ->
     kz_json:from_list([{<<"type">>, <<"string">>}]);
+validator_properties(_Fields, {'kz_api_term', Function, 1}) ->
+    kz_api_term:validator_properties(Function);
 validator_properties(_Fields, {'function', _F, _A}) ->
     ?DEBUG("  no properties for ~p fun ~p/~p~n", [_Fields, _F, _A]),
     kz_json:from_list([{<<"type">>, <<"string">>}]).
