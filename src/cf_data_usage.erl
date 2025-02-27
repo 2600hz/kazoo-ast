@@ -1,5 +1,5 @@
 %%%-----------------------------------------------------------------------------
-%%% @copyright (C) 2015-2023, 2600Hz
+%%% @copyright (C) 2015-2025, 2600Hz
 %%% @doc Module for parsing Callflow actions for `Data' usage.
 %%% @author James Aimonetti
 %%% This Source Code Form is subject to the terms of the Mozilla Public
@@ -110,6 +110,8 @@ augment_with_usage({M, F, K, Data, Default}, Schema) ->
 maybe_insert_schema('get_first_defined', _Ks, _Default, Schema) ->
     Schema;
 maybe_insert_schema('get_first_defined_keys', _Ks, _Default, Schema) ->
+    Schema;
+maybe_insert_schema('get_value_type', _Ks, _Default, Schema) ->
     Schema;
 maybe_insert_schema(_F, ['undefined' | _Keys], _Default, Schema) ->
     ?LOG_DEBUG("skipping function ~p with key undefined (~p left)", [_F, _Keys]),
@@ -412,6 +414,10 @@ process_mfa(#usage{data_var_name=DataName
            ,'kz_doc', 'id', [?VAR(DataName)]
            ) ->
     Acc#usage{usages=maybe_add_usage(Usages, {'kz_json', 'get_ne_binary_value', <<"id">>, DataName, 'undefined'})};
+process_mfa(#usage{}=Acc
+           ,'kz_json', 'get_value_type', _
+           ) ->
+    Acc;
 process_mfa(#usage{data_var_name=DataName}=Acc
            ,'kz_json', 'merge_recursive', [_Arg, ?VAR(DataName)]
            ) ->
