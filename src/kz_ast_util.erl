@@ -140,6 +140,7 @@ binary_match_to_binary(Match) when is_list(Match) ->
       [binary_part_to_binary(BP) || BP <- Match]
      ).
 
+binary_part_to_binary(?BINARY_VAR(VarName)) -> <<"{", (atom_to_binary(VarName, 'utf8'))/binary, "}">>;
 binary_part_to_binary(?BINARY_STRING(V)) -> V;
 binary_part_to_binary(?SUB_BINARY(V)) -> V;
 binary_part_to_binary(?BINARY_MATCH(Ms)) -> binary_match_to_binary(Ms);
