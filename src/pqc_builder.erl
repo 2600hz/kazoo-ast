@@ -88,7 +88,7 @@ src_module_to_iolist(#src_module{module=Module
 
 module_to_pqc_filename(Module) ->
     SrcFile = module_to_source_file(Module),
-    filename:join([code:lib_dir('kazoo_proper', 'src'), SrcFile]).
+    filename:join([code:lib_dir('kazoo_proper'),"src", SrcFile]).
 
 module_to_source_file(Module) ->
     Bin = kz_term:to_binary(Module),

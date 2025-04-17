@@ -872,7 +872,7 @@ get_app(App, Acc) ->
 
 -spec process_application(atom(), callback_configs()) -> callback_configs().
 process_application(App, Acc) ->
-    EBinDir = code:lib_dir(App, 'ebin'),
+    EBinDir = filename:join(code:lib_dir(App), "ebin"),
     ?LOG_DEBUG("processing ~s modules: ", [App]),
     Fun = fun(File, Acc1) -> process_module(App, File, Acc1) end,
     Processed = filelib:fold_files(EBinDir, "^cb_.*.beam\$", 'false', Fun, Acc),
