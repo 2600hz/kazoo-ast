@@ -80,13 +80,17 @@ build_ref_doc(Base, Schema) ->
     ].
 
 update_schema(Base, Path, Usage) ->
-    {'ok', Bin} = file:read_file(Path),
-    Schema = kz_json:decode(Bin),
-    case augment_schema(ensure_id(Base, Schema), Usage) of
+    Schema = read_schema_file(Path),
+    NewUsage = filter_schema_keys_with_usage(filename:dirname(Path), Schema, Usage),
+    case augment_schema(ensure_id(Base, Schema), NewUsage) of
         Schema -> 'ok';
         Augmented ->
             'ok' = file:write_file(Path, kz_json:encode(Augmented))
     end.
+
+read_schema_file(Path) ->
+    {'ok', Bin} = file:read_file(Path),
+    kz_json:decode(Bin).
 
 ensure_id(Base, Schema) ->
     ID = <<"callflows.", Base/binary>>,
@@ -897,3 +901,50 @@ is_action_module(Module, _Beam) ->
     Attributes = Module:module_info('attributes'),
     Behaviours = props:get_value('behaviour', Attributes, []),
     lists:member('gen_cf_action', Behaviours).
+
+%% this is a special case that no properties in the schema
+%% referring to other schema using oneOf
+filter_schema_keys_with_usage(Dir, Schema, Usage) ->
+    case (not kz_json:is_defined(<<"properties">>, Schema))
+        andalso kz_json:is_defined(<<"oneOf">>, Schema) of
+        'true' ->
+            %% TODO: option1 check the key from all nested schemas
+            OneOfSchemas = kz_json:get_json_list(<<"oneOf">>, Schema),
+            {_Dir, _OneOfSchemas, NewUsage} =
+                lists:foldl(fun is_defined_in_nested/2, {Dir, OneOfSchemas, []}, Usage),
+            lists:reverse(NewUsage);
+
+        %% []; %%TODO: option2 just skip it
+        'false' -> Usage
+    end.
+
+%% An intensive check keys and add the to `properties`, only added if undefined in the schema
+is_defined_in_nested({_M, _F, K, _Data, _Default}=Prop, {Dir, OneOfSchemas, Acc}) ->
+    case is_defined(Dir, K, OneOfSchemas) of
+        'true' -> {Dir, OneOfSchemas, Acc};
+        'false' -> {Dir, OneOfSchemas, [Prop|Acc]}
+    end.
+
+is_defined(Dir, Key, [Schema|Schemas]) ->
+    case kz_json:is_defined(<<"properties">>, Schema) of
+        'true' -> %% object in current schema
+            case kz_json:is_defined([<<"properties">>, Key], Schema) of
+                'true' -> 'true';
+                'false' -> is_defined(Dir, Key, Schemas)
+            end;
+        'false' ->
+            case kz_json:is_defined(<<"$ref">>, Schema) of
+                'true' -> %% refer to another schema
+                    Ref = kz_json:get_string_value(<<"$ref">>, Schema),
+                    Path = filename:join([Dir, Ref ++ ".json"]),
+                    JObj = read_schema_file(Path),
+                    case kz_json:is_defined([<<"properties">>, Key], JObj) of
+                        'true' -> 'true';
+                        'false' -> is_defined(Dir, Key, Schemas)
+                    end;
+                'false' -> %% oneOf or allOf
+                    [SpecialWord] = [X || X <- [<<"oneOf">>, <<"allOf">>], kz_json:is_defined(X, Schema)],
+                    JObjs = kz_json:get_json_list(SpecialWord, Schema),
+                    is_defined(Dir, Key, JObjs)
+            end
+    end.

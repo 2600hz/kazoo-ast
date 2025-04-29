@@ -438,6 +438,12 @@ any_of_to_row(Option, Refs) ->
 
 -spec property_to_row(kz_json:object(), kz_term:ne_binary() | kz_term:ne_binaries(), kz_json:object(), {iodata(), kz_term:ne_binaries()}) ->
           {iodata(), kz_term:ne_binaries()}.
+%% TODO: discuss how to generate that {"$ref": "pivot"}
+property_to_row(SchemaJObj, <<"$ref">>, <<"pivot">>, {_, _}=Acc) ->
+    Settings = kz_json:from_list([{<<"type">>,<<"object">>}
+                                 ,{<<"description">>, <<"Reference from pivot schema.">>}
+                                 ,{<<"$ref">>, <<"pivot">>}]),
+    property_to_row(SchemaJObj, [<<"pivot">>], Settings, {_, _}=Acc);
 property_to_row(SchemaJObj, Name=?NE_BINARY, Settings, {_, _}=Acc) ->
     property_to_row(SchemaJObj, [Name], Settings, Acc);
 property_to_row(SchemaJObj, Names, Settings, {Table, Refs}) ->
@@ -839,6 +845,8 @@ maybe_any_of_to_row(SchemaJObj, Names, Settings, Acc0) ->
         end,
     kz_json:foldl(F, Acc0, PlusPatternProperties).
 
+%% edge case allOf
+get_type(<<_/binary>>) -> <<"object">>;
 get_type(Schema) ->
     kz_json:get_value(<<"type">>, Schema).
 
@@ -846,7 +854,13 @@ get_ref(Schema) ->
     kz_json:get_ne_binary_value(<<"$ref">>, Schema).
 
 get_properties(Schema) ->
-    kz_json:get_json_value(<<"properties">>, Schema, kz_json:new()).
+    case not kz_json:is_defined(<<"properties">>, Schema)
+        andalso kz_json:is_defined(<<"oneOf">>, Schema) of
+        'true' -> %% edge case
+            JObjs = kz_json:get_json_list(<<"oneOf">>, Schema, kz_json:new()),
+            aggregate_all_props(JObjs);
+        'false' -> kz_json:get_json_value(<<"properties">>, Schema, kz_json:new())
+    end.
 
 get_pattern_properties(Schema) ->
     kz_json:get_json_value(<<"patternProperties">>, Schema, kz_json:new()).
@@ -856,3 +870,22 @@ get_minimum(Schema) ->
 
 get_maximum(Schema) ->
     kz_json:get_integer_value(<<"maximum">>, Schema).
+
+aggregate_all_props(JObjs) ->
+    lists:foldl(fun(JObj, Acc) ->
+                        kz_json:merge(from_jobj(JObj), Acc)
+                end, kz_json:new(), JObjs).
+
+from_jobj({[{<<"$ref">>, _Val}]} = Ref) -> Ref;
+from_jobj(JObj) ->
+    case kz_json:is_defined(<<"properties">>, JObj) of
+        'true' -> kz_json:get_json_value(<<"properties">>, JObj);
+        'false' ->
+            case [X || X <- [<<"oneOf">>, <<"allOf">>], kz_json:is_defined(X, JObj)] of
+                [] -> kz_json:new(); %% presence_aliases.json
+                [SpecialWord] ->
+                    Props = kz_json:get_json_list(SpecialWord, JObj),
+                    aggregate_all_props(Props)
+            end
+
+    end.
