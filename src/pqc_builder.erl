@@ -1,5 +1,5 @@
 %%%-----------------------------------------------------------------------------
-%%% @copyright (C) 2010-2023, 2600Hz
+%%% @copyright (C) 2010-2025, 2600Hz
 %%% @doc One-off for building pqc_cb_* modules that have CRUD-y APIs
 %%%
 %%% This Source Code Form is subject to the terms of the Mozilla Public
@@ -88,7 +88,7 @@ src_module_to_iolist(#src_module{module=Module
 
 module_to_pqc_filename(Module) ->
     SrcFile = module_to_source_file(Module),
-    filename:join([code:lib_dir('kazoo_proper', 'src'), SrcFile]).
+    filename:join([code:lib_dir('kazoo_proper'),"src", SrcFile]).
 
 module_to_source_file(Module) ->
     Bin = kz_term:to_binary(Module),

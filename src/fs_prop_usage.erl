@@ -1,5 +1,5 @@
 %%%-----------------------------------------------------------------------------
-%%% @copyright (C) 2015-2023, 2600Hz
+%%% @copyright (C) 2015-2025, 2600Hz
 %%% @doc Module for parsing ECallMgr modules, looking for Props from FreeSWITCH.
 %%% @author James Aimonetti
 %%% This Source Code Form is subject to the terms of the Mozilla Public
@@ -95,7 +95,8 @@ usage_keys({'props', 'insert_values', _Keys, _VarName, _Default}, Acc) -> Acc;
 usage_keys({'props', 'set_values', _Values, _VarName, 'undefined'}, Acc) -> Acc.
 
 event_filter_filename() ->
-    filename:join([code:lib_dir('ecallmgr', 'src')
+    filename:join([code:lib_dir('ecallmgr')
+                  ,"src"
                   ,"fs_event_filters.hrl"
                   ]).
 

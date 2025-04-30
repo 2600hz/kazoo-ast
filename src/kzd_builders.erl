@@ -140,7 +140,7 @@ build_from_pattern(PatternProperties, Acc, ParentProperty) ->
 %%     end.
 
 save_module(Id, FileContents) ->
-    SrcDir = code:lib_dir('kazoo_documents', 'src'),
+    SrcDir = filename:join(code:lib_dir('kazoo_documents'), "src"),
     Filename = filename:join([SrcDir, <<"kzd_", (clean_name(Id))/binary, ".erl.src">>]),
     'ok' = file:write_file(Filename, FileContents).
 

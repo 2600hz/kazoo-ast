@@ -1,5 +1,5 @@
 %%%-----------------------------------------------------------------------------
-%%% @copyright (C) 2015-2023, 2600Hz
+%%% @copyright (C) 2015-2025, 2600Hz
 %%% @doc Module for studying Kazoo applications dependency.
 %%% @author James Aimonetti
 %%% This Source Code Form is subject to the terms of the Mozilla Public
@@ -150,7 +150,8 @@ write_app_src(App, Config) ->
 
 app_src_filename(App) ->
     AppBin = kz_term:to_binary(App),
-    filename:join([code:lib_dir(App, 'src')
+    filename:join([code:lib_dir(App)
+                  ,"src"
                   ,<<AppBin/binary, ".app.src">>
                   ]).
 
