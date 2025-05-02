@@ -856,9 +856,9 @@ get_ref(Schema) ->
 get_properties(Schema) ->
     case not kz_json:is_defined(<<"properties">>, Schema)
         andalso kz_json:is_defined(<<"oneOf">>, Schema) of
-        'true' -> %% edge case
-            JObjs = kz_json:get_json_list(<<"oneOf">>, Schema, kz_json:new()),
-            aggregate_all_props(JObjs);
+        'true' -> %% schema has properties from oneOf
+            OneOfItems = kz_json:get_json_list(<<"oneOf">>, Schema, kz_json:new()),
+            aggregate_all_props(OneOfItems);
         'false' -> kz_json:get_json_value(<<"properties">>, Schema, kz_json:new())
     end.
 
@@ -871,21 +871,20 @@ get_minimum(Schema) ->
 get_maximum(Schema) ->
     kz_json:get_integer_value(<<"maximum">>, Schema).
 
-aggregate_all_props(JObjs) ->
-    lists:foldl(fun(JObj, Acc) ->
-                        kz_json:merge(from_jobj(JObj), Acc)
-                end, kz_json:new(), JObjs).
+aggregate_all_props(OneOfItems) ->
+    lists:foldl(fun(OneOfItem, Acc) ->
+                        kz_json:merge(from_oneOf_item(OneOfItem), Acc)
+                end, kz_json:new(), OneOfItems).
 
-from_jobj({[{<<"$ref">>, _Val}]} = Ref) -> Ref;
-from_jobj(JObj) ->
+%% referring from other schema, so skip it
+from_oneOf_item({[{<<"$ref">>, _Val}]} = Ref) -> Ref;
+from_oneOf_item(JObj) ->
     case kz_json:is_defined(<<"properties">>, JObj) of
         'true' -> kz_json:get_json_value(<<"properties">>, JObj);
         'false' ->
-            case [X || X <- [<<"oneOf">>, <<"allOf">>], kz_json:is_defined(X, JObj)] of
-                [] -> kz_json:new(); %% presence_aliases.json
-                [SpecialWord] ->
-                    Props = kz_json:get_json_list(SpecialWord, JObj),
-                    aggregate_all_props(Props)
+            case kz_json:get_first_defined([<<"oneOf">>, <<"allOf">>], JObj) of
+                'undefined' -> kz_json:new(); %% presence_aliases.json
+                Props -> aggregate_all_props(Props)
             end
 
     end.
