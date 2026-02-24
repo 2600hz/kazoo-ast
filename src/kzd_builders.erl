@@ -187,8 +187,12 @@ key_from_parent(<<"node">>=Node) ->
 key_from_parent(<<"zone">>=Zone) ->
     Zone;
 key_from_parent(Parent) ->
-    case kz_binary:strip_right(Parent, <<"s">>) of
-        Parent -> kz_binary:join([Parent, <<"index">>], <<"_">>);
+    case re:replace(Parent, <<"ies$">>, <<"y">>, [{'return', 'binary'}]) of
+        Parent ->
+            case kz_binary:strip_right(Parent, <<"s">>) of
+                Parent -> kz_binary:join([Parent, <<"index">>], <<"_">>);
+                Singular -> Singular
+            end;
         Singular -> Singular
     end.
 
@@ -201,7 +205,7 @@ accessor_from_properties(Property, Schema, {Exports, Accessors}) ->
 maybe_add_sub_properties(Property, Schema, Acc0, <<"object">>) ->
     case kz_json:is_true(<<"kz:skip_subproperty_builder">>, Schema) of
         'true' -> Acc0;
-        'false' ->build_schema_accessors(Schema, Acc0, Property)
+        'false' -> build_schema_accessors(Schema, Acc0, Property)
     end;
 maybe_add_sub_properties(_Property, _Schema, Acc, _Type) ->
     Acc.
@@ -344,7 +348,6 @@ json_ref_schema(_Schema, <<"#/", Key/binary>>) ->
 json_ref_schema(_Schema, Ref) ->
     {'ok', RefSchema} = kz_json_schema:fload(Ref),
     RefSchema.
-
 
 oneof(OneOf) ->
     case kz_json:get_value(<<"type">>, OneOf) of
